@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "\u6842\u82f1",
+  "productName": "桂英",
   "identifier": "com.guiying.app",
   "version": "1.0.0",
   "build": {
