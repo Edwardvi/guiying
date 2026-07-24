@@ -1,0 +1,22 @@
+node_modules/
+.npm-cache/
+.worktrees/
+.DS_Store
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Pi extension bundles (produced by scripts/build-extensions.js)
+extensions/dist/
+
+# Embedded pi binary tree (produced by scripts/fetch-pi-binary.js)
+src-tauri/resources/pi/
+.cache/pi-binaries/
+
+# Pi session exports
+pi-session-*.html
+
+# 桂英 default config (contains API keys, not for public)
+default-config/auth.json
+.claude/

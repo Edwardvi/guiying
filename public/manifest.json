@@ -1,0 +1,17 @@
+{
+  "name": "Picot",
+  "short_name": "Picot",
+  "description": "Local desktop GUI for the Pi coding agent",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f3ef",
+  "theme_color": "#f5f3ef",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/logo-dark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
