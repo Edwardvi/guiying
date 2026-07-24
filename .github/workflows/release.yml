@@ -89,7 +89,11 @@ jobs:
 
       - name: Build Tauri
         run: |
-          npx @tauri-apps/cli build \${{ matrix.rust_target && format('--target {0}', matrix.rust_target) || '' }}
+          BUNDLES=""
+          if [ "\${{ runner.os }}" = "Windows" ]; then
+            BUNDLES="--bundles nsis"
+          fi
+          npx @tauri-apps/cli build \$BUNDLES \${{ matrix.rust_target && format('--target {0}', matrix.rust_target) || '' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
