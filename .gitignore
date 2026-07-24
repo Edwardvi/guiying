@@ -18,5 +18,4 @@ src-tauri/resources/pi/
 pi-session-*.html
 
 # 桂英 default config (contains API keys, not for public)
-default-config/auth.json
 .claude/
