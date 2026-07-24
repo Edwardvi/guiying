@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "桂英",
+  "productName": "\u6842\u82f1",
   "identifier": "com.guiying.app",
   "version": "1.0.0",
   "build": {
@@ -14,13 +14,15 @@
     "windows": [],
     "security": {
       "csp": "default-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' mediastream:;",
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "macOS": {
       "signingIdentity": "-",
       "entitlements": "./entitlements.plist",
@@ -37,15 +39,6 @@
       "../public": "public",
       "../extensions/dist": "extensions",
       "./resources/pi": "pi"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU5OUQ4Q0Y5MTA1MTFDRTEKUldUaEhGRVErWXlkNlNSa01lY0g5S1ltM3BjMHJhdUYxdXdsc25USndZdDBFeGZyeGpUa2JVZWEK",
-      "endpoints": [],
-      "windows": {
-        "installMode": "passive"
-      }
     }
   }
 }
