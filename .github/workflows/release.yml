@@ -133,12 +133,13 @@ jobs:
         run: bun run build:extensions
 
       - name: Deploy default config to bundle
+        shell: bash
         run: |
           mkdir -p src-tauri/resources/pi/default-config/skills
           cp default-config/settings.json src-tauri/resources/pi/default-config/
           cp default-config/models-store.json src-tauri/resources/pi/default-config/
           cp default-config/auth.json src-tauri/resources/pi/default-config/
-          cp -r default-config/skills/* src-tauri/resources/pi/default-config/skills/ 2>/dev/null || true
+          [ -d "default-config/skills" ] && cp -r default-config/skills/* src-tauri/resources/pi/default-config/skills/ || true
 
       - name: Build Tauri app (Linux deb + rpm) and publish assets
         if: runner.os == 'Linux'
