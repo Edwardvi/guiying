@@ -155,8 +155,8 @@ jobs:
           # auto-updater reads from the GitHub release). Configure these
           # one-time in repo Settings → Secrets → Actions. See
           # docs/AUTO_UPDATER.md for how to generate the key pair.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || "" }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || "" }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "桂英 ${{ github.ref_name }}"
@@ -185,8 +185,8 @@ jobs:
           # auto-updater reads from the GitHub release). Configure these
           # one-time in repo Settings → Secrets → Actions. See
           # docs/AUTO_UPDATER.md for how to generate the key pair.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || "" }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || "" }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "桂英 ${{ github.ref_name }}"
