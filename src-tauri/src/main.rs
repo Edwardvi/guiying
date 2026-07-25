@@ -1144,10 +1144,10 @@ fn main() {
                     );
                     app.dialog()
                         .message(format!(
-                            "Picot could not start the embedded pi runtime.\n\n{}\n\nThe Picot installation may be incomplete or corrupted. Please reinstall Picot and try again.",
+                            "桂英 内置 AI 引擎启动失败。\n\n{}\n\n请检查安装完整性，或重新安装桂英。",
                             err
                         ))
-                        .title("Picot startup failed")
+                        .title("桂英 启动失败")
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }
@@ -1179,9 +1179,23 @@ fn main() {
                     } else if let Some(broker) = app_handle.try_state::<BrokerWsState>() {
                         if let Err(e) = open_workspace_window(&app_handle, initial_port, &broker.url()) {
                             log::error!("Failed to open window: {}", e);
+                            let _ = app_handle.dialog()
+                                .message(format!("窗口打开失败: {}\n\n桂英 的界面未能加载。请检查 WebView2 或显卡驱动。", e))
+                                .title("桂英 启动失败")
+                                .kind(MessageDialogKind::Error)
+                                .show(|_| {
+                                    std::process::exit(1);
+                                });
                         }
                     } else {
                         log::error!("Failed to open window: broker websocket state missing");
+                        let _ = app_handle.dialog()
+                            .message("桂英 启动失败: 内部服务连接错误。\n\n请尝试重新安装。")
+                            .title("桂英 启动失败")
+                            .kind(MessageDialogKind::Error)
+                            .show(|_| {
+                                std::process::exit(1);
+                            });
                     }
                 });
             }
