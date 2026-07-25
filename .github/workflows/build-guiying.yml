@@ -1,0 +1,151 @@
+name: Build guiying
+
+# guiying — Pi coding agent desktop IDE, bundled with 23 skills + 2 extensions.
+# Builds macOS (arm64 + x64) and Windows from a single workflow.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  # -------------------------------------------------------------------
+  # macOS
+  # -------------------------------------------------------------------
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Cache electron downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      - name: Build app
+        run: pnpm build:desktop
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          ORCA_BUILD_IDENTITY: null
+          ORCA_POSTHOG_WRITE_KEY: null
+          ORCA_DIAGNOSTICS_TOKEN_URL: ''
+
+      # macOS build without signing (local ad-hoc)
+      - name: Package macOS (unsigned)
+        run: |
+          pnpm exec electron-builder \
+            --config config/electron-builder.config.cjs \
+            --mac --${{ matrix.arch }} \
+            --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: guiying-macos-${{ matrix.arch }}
+          path: |
+            dist/guiying-macos-*.dmg
+            dist/guiying-macos-*.zip
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------
+  # Windows
+  # -------------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Cache electron downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      - name: Build app
+        run: pnpm build:desktop
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          ORCA_BUILD_IDENTITY: null
+          ORCA_POSTHOG_WRITE_KEY: null
+          ORCA_DIAGNOSTICS_TOKEN_URL: ''
+
+      # Windows: skip signing
+      - name: Package Windows (unsigned)
+        run: pnpm exec electron-builder --config config/electron-builder.config.cjs --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: guiying-windows
+          path: dist/guiying-windows-setup*.exe
+          if-no-files-found: error
