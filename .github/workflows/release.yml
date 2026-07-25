@@ -93,6 +93,8 @@ jobs:
           BUNDLES=""
           if [ "${{ runner.os }}" = "Windows" ]; then
             BUNDLES="--bundles nsis"
+          elif [ "${{ runner.os }}" = "Linux" ]; then
+            BUNDLES="--bundles deb,rpm"
           fi
           npx @tauri-apps/cli build $BUNDLES ${{ matrix.rust_target && format('--target {0}', matrix.rust_target) || '' }}
 
