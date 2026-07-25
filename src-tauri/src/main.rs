@@ -1,5 +1,119 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "windows")]
+mod win_errors {
+    use std::io::Write;
+    use std::panic;
+    use std::fs::OpenOptions;
+
+    #[link(name = "user32")]
+    extern "system" {
+        fn MessageBoxW(
+            hwnd: *mut std::ffi::c_void,
+            lp_text: *const u16,
+            lp_caption: *const u16,
+            u_type: u32,
+        ) -> i32;
+    }
+
+    /// Show a Windows message box and write to a log file on panic.
+    pub fn install_panic_hook() {
+        let log_path = get_log_path();
+        // Ensure parent dir exists so the log write inside the hook won't fail.
+        if let Some(parent) = log_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = writeln!(
+            OpenOptions::new().create(true).append(true).open(&log_path).unwrap_or_else(|_| {
+                std::fs::File::create("guiying-startup.log").unwrap()
+            }),
+            "[guiying] startup begin"
+        );
+
+        let hook_log = log_path.clone();
+        panic::set_hook(Box::new(move |info| {
+            let msg = format!(
+                "桂英 发生内部错误，即将退出。\n\n错误详情:\n{}\n\n日志文件: {}",
+                info,
+                hook_log.display()
+            );
+            // Write panic to log file
+            let _ = writeln!(
+                OpenOptions::new().create(true).append(true).open(&hook_log).unwrap_or_else(|_| {
+                    std::fs::File::create("guiying-startup.log").unwrap()
+                }),
+                "[guiying] PANIC: {}",
+                info
+            );
+            // Show Windows message box (no dependencies needed — raw Win32 API)
+            unsafe {
+                windows_message_box("桂英 启动失败", &msg);
+            }
+            std::process::exit(1);
+        }));
+    }
+
+    /// Write early startup progress to the log file.
+    pub fn startup_log(msg: &str) {
+        let path = get_log_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = writeln!(
+            OpenOptions::new().create(true).append(true).open(&path).unwrap_or_else(|_| {
+                std::fs::File::create("guiying-startup.log").unwrap()
+            }),
+            "{}",
+            msg
+        );
+    }
+
+    fn get_log_path() -> std::path::PathBuf {
+        std::env::var("GUIYING_LOG")
+            .ok()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                let mut p = dirs_next().unwrap_or_else(|| std::path::PathBuf::from("."));
+                p.push("guiying-startup.log");
+                p
+            })
+    }
+
+    fn dirs_next() -> Option<std::path::PathBuf> {
+        #[cfg(target_os = "windows")]
+        {
+            std::env::var("LOCALAPPDATA")
+                .ok()
+                .map(std::path::PathBuf::from)
+                .map(|p| p.join("桂英"))
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            dirs::home_dir().map(|h| h.join(".local/share/桂英"))
+        }
+    }
+
+    /// Call MessageBoxW via FFI — zero external dependencies.
+    unsafe fn windows_message_box(title: &str, body: &str) {
+        let title_wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+        let body_wide: Vec<u16> = body.encode_utf16().chain(std::iter::once(0)).collect();
+        const MB_OK: u32 = 0x00000000;
+        const MB_ICONERROR: u32 = 0x00000010;
+        MessageBoxW(
+            std::ptr::null_mut(),
+            body_wide.as_ptr(),
+            title_wide.as_ptr(),
+            MB_OK | MB_ICONERROR,
+        );
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+mod win_errors {
+    pub fn install_panic_hook() {}
+    pub fn startup_log(_msg: &str) {}
+}
+
 mod broker_ws;
 mod host_data;
 mod host_router;
@@ -482,7 +596,7 @@ fn open_workspace_window(app: &AppHandle, port: u16, broker_ws_url: &str) -> Res
         .map_err(|e| format!("Failed to load window icon: {}", e))?;
 
     let builder =
-        WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url.parse().unwrap()))
+        WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url.parse().map_err(|e| format!("Invalid workspace URL: {}", e))?))
             .title("桂英")
             .inner_size(1300.0, 860.0)
             .min_inner_size(800.0, 600.0)
@@ -1056,6 +1170,12 @@ fn install_control_handler(broker: &Arc<BrokerWs>, manager: Arc<PiManager>, app:
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() {
+    // On Windows, install a panic hook that shows a visible error dialog
+    // BEFORE any other code runs. The default panic behaviour with
+    // windows_subsystem = "windows" is completely invisible.
+    win_errors::install_panic_hook();
+    win_errors::startup_log("[guiying] main() entered");
+
     // Sync PATH from the user's login shell before anything else.
     // macOS GUI apps (launched from Finder/Dock) inherit only the minimal
     // system PATH (/usr/bin:/bin:/usr/sbin:/sbin).  fix_path_env::fix() runs
@@ -1064,8 +1184,11 @@ fn main() {
     // as a normal terminal session.
     if let Err(err) = fix_path_env::fix() {
         eprintln!("[guiying] failed to sync PATH from login shell: {err}");
+        win_errors::startup_log(&format!("[guiying] fix_path_env failed: {err}"));
     }
+    win_errors::startup_log("[guiying] fix_path_env done");
 
+    win_errors::startup_log("[guiying] entering tauri::Builder");
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -1083,12 +1206,21 @@ fn main() {
         )
         .setup(|app| {
             let static_dir = find_static_dir(app);
+            win_errors::startup_log(&format!(
+                "[guiying] static_dir: {}",
+                static_dir.display()
+            ));
             if native_runtime_enabled() {
                 setup_native_runtime(app, static_dir).map_err(std::io::Error::other)?;
                 return Ok(());
             }
             let manager = Arc::new(PiManager::new(static_dir));
+            win_errors::startup_log("[guiying] PiManager created");
             let broker = Arc::new(BrokerWs::start().expect("failed to start broker websocket"));
+            win_errors::startup_log(&format!(
+                "[guiying] BrokerWs started on port {}",
+                broker.port()
+            ));
             std::env::set_var("PI_STUDIO_BROKER_PORT", broker.port().to_string());
             install_control_handler(&broker, manager.clone(), app.handle().clone());
 
@@ -1126,6 +1258,10 @@ fn main() {
             // guaranteed entry point — but Picot doesn't promise that;
             // the WebView discovers its port via the window URL.
             let initial_port = manager.next_port();
+            win_errors::startup_log(&format!(
+                "[guiying] initial_port={} cwd={}",
+                initial_port, cwd
+            ));
 
             let mut startup_ok = true;
             if initial_port != 47821 {
@@ -1135,6 +1271,7 @@ fn main() {
                 );
             }
             if let Err(err) = manager.spawn(&cwd, initial_port, session_path.as_deref()) {
+                win_errors::startup_log(&format!("[guiying] pi spawn FAILED: {}", err));
                 startup_ok = false;
                 log::error!("[pi-desktop] startup failed to spawn pi: {}", err);
                 if let Err(window_err) = open_bootstrap_window(&app.handle().clone(), &err) {
@@ -1157,6 +1294,7 @@ fn main() {
             app.manage(broker.clone());
 
             if startup_ok {
+                win_errors::startup_log("[guiying] pi spawn OK, waiting for health...");
                 broker.register_session(initial_port, session_path.as_deref().unwrap_or(""));
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {

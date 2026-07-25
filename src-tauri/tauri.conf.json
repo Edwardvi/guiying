@@ -35,6 +35,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "windows": {
+      "nsis": {
+        "minimumWebview2Version": "128.0.0.0"
+      }
+    },
     "resources": {
       "../public": "public",
       "../extensions/dist": "extensions",

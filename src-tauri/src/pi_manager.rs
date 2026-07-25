@@ -78,6 +78,22 @@ fn configure_child_process_for_windows(command: &mut Command) {
 #[cfg(not(target_os = "windows"))]
 fn configure_child_process_for_windows(_command: &mut Command) {}
 
+/// On Windows GUI apps, pi stderr is redirected here so startup crashes are diagnosable.
+#[cfg(target_os = "windows")]
+fn pi_stderr_log_path() -> std::path::PathBuf {
+    std::env::var("GUIYING_LOG")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var("LOCALAPPDATA")
+                .ok()
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("桂英")
+                .join("pi-stderr.log")
+        })
+}
+
 /// Build an augmented PATH for child processes.
 ///
 /// `fix_path_env::fix()` is called at app startup and already merges the
@@ -652,11 +668,30 @@ impl PiManager {
             .stdin(Stdio::piped())
             // Drop stdout: pi emits RPC frames on it that we don't consume here, and
             // letting it fill an unread pipe would eventually block the child.
-            .stdout(Stdio::null())
-            // Inherit stderr so pi's startup/runtime errors are visible in the same
-            // terminal running `bun run dev` — critical for diagnosing failures of
-            // new_session / open_workspace that would otherwise be silent.
-            .stderr(Stdio::inherit());
+            .stdout(Stdio::null());
+            // On macOS/Linux dev, inherit stderr so pi errors are visible in the terminal.
+            // On Windows (GUI app with no console), redirect stderr to a log file so
+            // we can diagnose pi startup failures.
+        #[cfg(target_os = "windows")]
+        {
+            let pi_log = pi_stderr_log_path();
+            if let Some(parent) = pi_log.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::File::create(&pi_log) {
+                Ok(file) => {
+                    child.stderr(Stdio::from(file));
+                }
+                Err(e) => {
+                    log::warn!("[pi-desktop] failed to create pi stderr log at {}: {}", pi_log.display(), e);
+                    child.stderr(Stdio::null());
+                }
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            child.stderr(Stdio::inherit());
+        }
 
         let spawn_started_at = Instant::now();
         let mut child = child.spawn().map_err(|e| {
