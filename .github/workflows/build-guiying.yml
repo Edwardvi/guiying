@@ -61,7 +61,10 @@ jobs:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
 
       - name: Build app
-        run: pnpm build:desktop
+        run: |
+          pnpm build:relay
+          pnpm build:cli
+          pnpm build:electron-vite
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           ORCA_BUILD_IDENTITY: null
@@ -130,7 +133,10 @@ jobs:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
 
       - name: Build app
-        run: pnpm build:desktop
+        run: |
+          pnpm build:relay
+          pnpm build:cli
+          pnpm build:electron-vite
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           ORCA_BUILD_IDENTITY: null
