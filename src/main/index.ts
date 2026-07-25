@@ -31,6 +31,7 @@ import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
 import { classifyError } from './telemetry/classify-error'
 import { runManagedHookInstallers } from './agent-hooks/install-telemetry'
+import { runPiBootstrap } from './pi-bootstrap'
 import {
   isAgentStatusHooksEnabled,
   MANAGED_AGENT_HOOK_INSTALLERS,
@@ -2214,6 +2215,10 @@ app.whenReady().then(async () => {
   await ensureMainI18n()
   await setMainUiLanguage(store.getSettings().uiLanguage)
   logStartupMilestone('i18n-ready')
+
+  // Why: fire-and-forget — copies bundled Pi skills/extensions/config on first
+  // launch so users get the full Pi toolkit out of the box.
+  void runPiBootstrap()
 
   registerAppMenu({
     appMenuLabel: devInstanceIdentity.name,

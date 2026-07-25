@@ -1,9 +1,9 @@
 {
-  "name": "orca",
+  "name": "guiying",
   "version": "1.4.156-rc.1",
-  "description": "Next-gen IDE for parallel agentic development",
-  "homepage": "https://github.com/stablyai/orca",
-  "author": "stablyai",
+  "description": "GUIYING — Pi coding agent desktop IDE with bundled skills and extensions",
+  "homepage": "https://github.com/guiying-app/guiying",
+  "author": "guiying",
   "bin": {
     "orca": "./out/cli/index.js",
     "orca-dev": "./config/scripts/orca-dev.mjs"

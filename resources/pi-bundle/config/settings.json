@@ -1,0 +1,16 @@
+{
+  "defaultProvider": "opencode-go",
+  "defaultModel": "deepseek-v4-pro",
+  "skills": [
+    "~/.pi/agent/skills"
+  ],
+  "extensions": [
+    "~/.pi/agent/extensions"
+  ],
+  "packages": [
+    "npm:pi-web-access",
+    "npm:pi-mcp-adapter",
+    "npm:pi-subagents",
+    "npm:context-mode"
+  ]
+}
