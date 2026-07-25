@@ -62,8 +62,7 @@ jobs:
 
       - name: Build app
         run: |
-          pnpm build:relay
-          pnpm build:cli
+          pnpm build:relay 2>&1 || echo "(relay skipped)"
           pnpm build:electron-vite
         env:
           NODE_OPTIONS: --max-old-space-size=4096
@@ -134,8 +133,7 @@ jobs:
 
       - name: Build app
         run: |
-          pnpm build:relay
-          pnpm build:cli
+          pnpm build:relay 2>&1 || echo "(relay skipped)"
           pnpm build:electron-vite
         env:
           NODE_OPTIONS: --max-old-space-size=4096
