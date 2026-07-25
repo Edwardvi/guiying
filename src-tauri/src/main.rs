@@ -1166,7 +1166,7 @@ fn main() {
                         let _ = app_handle.dialog()
                             .message(format!("启动失败: {}\n\n桂英 的内置 AI 引擎未能启动。请检查安装完整性。", e))
                             .title("桂英 启动失败")
-                            .kind(tauri::ipc::MessageDialogKind::Error)
+                            .kind(MessageDialogKind::Error)
                             .show(|_| {
                                 std::process::exit(1);
                             });
