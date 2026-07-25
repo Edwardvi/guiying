@@ -39,6 +39,11 @@
       "../public": "public",
       "../extensions/dist": "extensions",
       "./resources/pi": "pi"
+    },
+    "windows": {
+      "nsis": {
+        "installWebView2": true
+      }
     }
   }
 }
