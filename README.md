@@ -1,6 +1,6 @@
 # guiying
 
-基于 [Orca](https://github.com/stablyai/orca) 定制的 Pi 编程 Agent 桌面 IDE。开箱即用，内置 23 个营销/创意方法论 skills。
+基于 [Orca](https://github.com/stablyai/orca) 定制的 Pi 编程 Agent 桌面 IDE。开箱即用，内置 20 个营销/创意方法论 skills。
 
 ## 与 Orca 原版的区别
 
@@ -32,7 +32,7 @@
    - **出圈事件营销** — 设计刷屏级事件方案（4azhongdeng）
    - **品牌叙事策展** — 空间叙事体验设计（策展-framework）
 
-## 内置 Skills（23个）
+## 内置 Skills（20个）
 
 ### 营销方法论
 - **4alaodeng** — 营销策略与品牌定位（叶茂中/小马宋/史玉柱）
@@ -43,16 +43,13 @@
 - **策展** / **策展-framework** — 空间叙事与在地文化体验设计（原研哉/安藤忠雄/柳宗悦）
 
 ### 设计产出
-- **design-deck** — 花叔 Design 专业设计工作流（HTML + PDF + PPTX）
-- **editorial-deck** — 横向翻页网页 PPT（杂志风/瑞士风）
-- **pro-presentation** — 全能 HTML 演示工具包（36 主题/15 模板/27 动效）
-- **guizang-ppt-skill** — 横向翻页网页 PPT（WebGL 背景）
-- **html-ppt** — HTML PPT Studio（多风格/多模板）
+- **design-deck** — 花叔 Design 专业设计工作流（HTML + PDF + 可编辑 PPTX）
+- **editorial-deck** — 横向翻页网页 PPT（杂志风/瑞士风，WebGL 背景）
+- **pro-presentation** — 全能 HTML 演示工具包（36 主题/15 模板/演讲者模式）
 
 ### AI 协作者
 - **nuwa** — 女娲造人（人物思维 Skill 蒸馏）
 - **mao** — 毛泽东方法论 AI 分析
-- **huashu-design** — 花叔 Design 高保真原型与动画
 
 ### 效率工具
 - **caveman** 系列（7个） — 超压缩通信/commit/代码审查

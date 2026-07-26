@@ -188,7 +188,7 @@ export async function runPiBootstrap(): Promise<void> {
           cpSync(src, dst, { recursive: true })
         }
       }
-      log('Skills copied ✓ (23) → guiying-skills/')
+      log('Skills copied ✓ (20) → guiying-skills/')
     }
 
     // ── 2. Extensions ───────────────────────────────────
