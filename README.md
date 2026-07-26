@@ -43,7 +43,7 @@
 - **策展** / **策展-framework** — 空间叙事与在地文化体验设计（原研哉/安藤忠雄/柳宗悦）
 
 ### 设计产出
-- **design-deck** — 花叔 Design 专业设计工作流（HTML + PDF + 可编辑 PPTX）
+- **huashu-design** — 花叔 Design 高保真原型+幻灯片+动画+设计评审（含可编辑 PPTX 导出）
 - **editorial-deck** — 横向翻页网页 PPT（杂志风/瑞士风，WebGL 背景）
 - **pro-presentation** — 全能 HTML 演示工具包（36 主题/15 模板/演讲者模式）
 
