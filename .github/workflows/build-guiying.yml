@@ -70,7 +70,7 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime (offline install — no npm needed on first launch)
+      # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
       - name: Bundle Pi runtime
         run: node config/scripts/bundle-pi.mjs
         env:
@@ -148,7 +148,7 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime (offline install — no npm needed on first launch)
+      # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
       - name: Bundle Pi runtime
         run: node config/scripts/bundle-pi.mjs
         env:
