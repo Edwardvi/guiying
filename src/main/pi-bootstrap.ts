@@ -61,11 +61,11 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   const piCliPath = join(piEntry, 'dist', 'cli.js')
 
   if (process.platform === 'win32') {
-    // 写入 %LOCALAPPDATA%/guiying/bin/pi.cmd
-    // 这个目录在注册 pi 命令时不依赖 npm 的 PATH 配置
-    const localDir = join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'guiying', 'bin')
-    mkdirSync(localDir, { recursive: true })
-    const cmdPath = join(localDir, 'pi.cmd')
+    // 写入 guiying 安装目录（NSIS 安装器已将其加入 PATH）
+    // 这样可以立即生效，无需注销重新登录
+    const appDir = join(electronBin, '..')  // 与 Guiying.exe 同目录
+    const cmdPath = join(appDir, 'pi.cmd')
+    mkdirSync(appDir, { recursive: true })
     writeFileSync(cmdPath,
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
@@ -74,8 +74,8 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     )
     log(`pi.cmd registered at ${cmdPath} ✓`)
 
-    // 将 guiying/bin 加入用户 PATH（持久化）
-    addToWindowsUserPath(localDir, log)
+    // 同时写入注册表（新进程 logout/login 后生效）
+    addToWindowsUserPath(appDir, log)
   } else {
     // macOS/Linux: 优先写入 /usr/local/bin（在默认 PATH 上，GUI app 可用）
     let binDir = '/usr/local/bin'
