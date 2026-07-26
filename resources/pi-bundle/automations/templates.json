@@ -1,0 +1,26 @@
+[
+  {
+    "id": "guiying-strategy-ppt",
+    "name": "策略PPT",
+    "description": "一键启动 Pi agent，用营销方法论制作策略PPT",
+    "prompt": "使用4alaodeng、fxxk4a、策展等营销方法论skills，帮我制作一份品牌策略PPT。先分析目标客群，再给出定位建议，最后产出可落地的策略方案。",
+    "agentId": "pi",
+    "shortcut": true
+  },
+  {
+    "id": "guiying-event-marketing",
+    "name": "出圈事件营销",
+    "description": "用4azhongdeng方法论设计刷屏级事件营销方案",
+    "prompt": "使用4azhongdeng的刷屏营销方法论，为我的品牌设计一个出圈事件营销方案。需要包含：事件创意、传播路径、执行时间线和预算估算。",
+    "agentId": "pi",
+    "shortcut": true
+  },
+  {
+    "id": "guiying-investment-narrative",
+    "name": "品牌叙事策展",
+    "description": "用策展方法论打造品牌空间叙事体验",
+    "prompt": "使用策展方法论（基于原研哉、安藤忠雄、柳宗悦），帮我设计一个品牌空间叙事方案。包括：动线规划、感官体验设计、在地文化融入。",
+    "agentId": "pi",
+    "shortcut": true
+  }
+]
