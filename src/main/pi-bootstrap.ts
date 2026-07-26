@@ -168,45 +168,20 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
 function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
   if (!existsSync(authFile)) {
-    log('⚠ OpenCodeGo not configured — launching login...')
-    launchOpenCodeGoLogin(userDir, log)
+    log('⚠ OpenCodeGo 未配置 — 请在终端中运行 pi /login opencode-go')
+    log('  选择 "API Key" 方式，输入你的 OpenCodeGo key')
     return
   }
   try {
     const auth = JSON.parse(readFileSync(authFile, 'utf8'))
-    if (auth['opencode-go']) {
-      log('OpenCodeGo already authenticated ✓')
+    if (auth['opencode-go']?.key) {
+      log('OpenCodeGo ✓ 已配置')
     } else {
-      log('⚠ OpenCodeGo not configured — launching login...')
-      launchOpenCodeGoLogin(userDir, log)
+      log('⚠ OpenCodeGo 未配置 — 请在终端中运行 pi /login opencode-go')
+      log('  选择 "API Key" 方式，输入你的 OpenCodeGo key')
     }
   } catch {
-    log('⚠ Cannot read auth.json, launching login...')
-    launchOpenCodeGoLogin(userDir, log)
-  }
-}
-
-function launchOpenCodeGoLogin(userDir: string, log: (msg: string) => void): void {
-  try {
-    const shimPath = process.platform === 'win32'
-      ? join(process.env.LOCALAPPDATA || '', 'guiying', 'bin', 'pi.cmd')
-      : '/usr/local/bin/pi'
-
-    if (!existsSync(shimPath)) {
-      log('⚠ pi shim not found at ' + shimPath + ', cannot auto-launch login')
-      return
-    }
-
-    const { spawn } = require('node:child_process')
-    const child = spawn(shimPath, ['/login', 'opencode-go'], {
-      shell: true,
-      stdio: 'ignore',
-      detached: true
-    })
-    child.unref()
-    log('✓ OpenCodeGo login launched — check your browser')
-  } catch (err: any) {
-    log(`⚠ Login launch failed: ${err?.message || err}`)
+    log('⚠ 无法读取 auth.json')
   }
 }
 
