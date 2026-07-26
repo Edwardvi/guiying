@@ -144,7 +144,7 @@ export function getDefaultNotificationSettings(): NotificationSettings {
 export function getDefaultOnboardingState(): OnboardingState {
   return {
     flowVersion: ONBOARDING_FLOW_VERSION,
-    closedAt: null,
+    closedAt: 1, // guiying: skip onboarding wizard on first launch
     outcome: null,
     lastCompletedStep: -1,
     checklist: {
