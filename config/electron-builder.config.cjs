@@ -40,7 +40,11 @@ const piBundleResource = {
   from: 'resources/pi-bundle',
   to: 'pi-bundle'
 }
-const commonExtraResources = [relayExtraResource, skillFreshnessResources, piBundleResource]
+const piRuntimeResource = {
+  from: 'resources/pi-runtime',
+  to: 'pi-runtime'
+}
+const commonExtraResources = [relayExtraResource, skillFreshnessResources, piBundleResource, piRuntimeResource]
 const macSpeechNativeResource = {
   from: 'node_modules/sherpa-onnx-darwin-${arch}',
   to: 'node_modules/sherpa-onnx-darwin-${arch}'
@@ -92,6 +96,7 @@ module.exports = {
     '!resources/onboarding/feature-wall/**',
     '!resources/skills/**',
     '!resources/pi-bundle/**',
+    '!resources/pi-runtime/**',
     // Why: the Windows CLI shim ships via extraResources to resources/bin/orca.cmd
     // (beside the native resources/bin/orca.exe). Packing the source tree into
     // app.asar too lets asarUnpack:['resources/**'] extract a second copy at

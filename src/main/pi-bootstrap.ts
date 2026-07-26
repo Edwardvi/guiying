@@ -1,90 +1,45 @@
 /**
- * guiying Bootstrap — 首次启动时完成所有初始化。
+ * guiying Bootstrap — 首次启动时复制捆绑的 Pi 运行时到用户目录。
  *
  * 在 app.whenReady() 后异步调用。幂等：已初始化则跳过。
  *
- * 初始化内容：
- *   1. 复制捆绑的 Pi skills + extensions + config 到 ~/.pi/agent/
- *   2. 确保 Pi CLI 已安装（自动 npm install -g）
- *   3. 安装 Pi npm 包（pi-web-access 等）
+ * 捆绑内容（构建时由 config/scripts/bundle-pi.mjs 预装）:
+ *   resources/pi-bundle/        skills + extensions + config (169MB)
+ *   resources/pi-runtime/       Pi CLI + 4 npm 包
  *
- * 自动化任务模板（策略PPT / 出圈事件营销 / 品牌叙事策展）已直接编译进
- * UI 源码 src/renderer/.../automation-templates.ts，无需运行时注入。
+ * 启动时做的事:
+ *   1. 复制 skills → ~/.pi/agent/skills/
+ *   2. 复制 extensions → ~/.pi/agent/extensions/
+ *   3. 合并 settings → ~/.pi/agent/settings.json
+ *   4. 复制 pi-runtime → ~/.pi/agent/npm/（离线，无需网络）
+ *
+ * 自动化任务模板（策略PPT 等）已编译进 UI 源码，无需运行时注入。
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { execFileSync, execSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
 // ---------------------------------------------------------------------------
 
+function getResourcesDir(): string {
+  if (existsSync(join(__dirname, '..', '..', 'resources'))) {
+    return join(__dirname, '..', '..', 'resources')
+  }
+  return process.resourcesPath
+}
+
 function getBundledPiDir(): string {
-  const devPath = join(__dirname, '..', '..', 'resources', 'pi-bundle')
-  if (existsSync(devPath)) return devPath
-  return join(process.resourcesPath, 'pi-bundle')
+  return join(getResourcesDir(), 'pi-bundle')
+}
+
+function getBundledPiRuntimeDir(): string {
+  return join(getResourcesDir(), 'pi-runtime')
 }
 
 function getUserPiDir(): string {
   const home = process.env.HOME || process.env.USERPROFILE || '~'
   return join(home, '.pi', 'agent')
-}
-
-// ---------------------------------------------------------------------------
-// Pi CLI 检测与安装
-// ---------------------------------------------------------------------------
-
-function isPiCliInstalled(): boolean {
-  try {
-    execSync(process.platform === 'win32' ? 'where pi' : 'which pi', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-}
-
-function isNodeInstalled(): boolean {
-  try {
-    execSync(process.platform === 'win32' ? 'where node' : 'which node', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-}
-
-function installPiCli(log: (msg: string) => void): boolean {
-  if (!isNodeInstalled()) {
-    log('Node.js not found — please install Node.js first: https://nodejs.org')
-    return false
-  }
-  try {
-    log('Installing Pi CLI (npm install -g @earendil-works/pi-coding-agent)...')
-    execFileSync('npm', ['install', '-g', '@earendil-works/pi-coding-agent'], {
-      stdio: 'pipe',
-      timeout: 120000
-    })
-    log('Pi CLI installed ✓')
-    return true
-  } catch (err: any) {
-    log(`Pi CLI install failed: ${err?.message || err}`)
-    return false
-  }
-}
-
-function installPiPackages(log: (msg: string) => void): void {
-  const packages = ['pi-web-access', 'pi-mcp-adapter', 'pi-subagents', 'context-mode']
-  for (const pkg of packages) {
-    try {
-      execFileSync('pi', ['install', `npm:${pkg}`], {
-        env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE || '~' },
-        timeout: 60000,
-        stdio: 'pipe'
-      })
-      log(`pi install npm:${pkg} ✓`)
-    } catch {
-      log(`pi install npm:${pkg} ✗ (will retry next launch)`)
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -105,75 +60,67 @@ export async function runPiBootstrap(): Promise<void> {
 
   const userDir = getUserPiDir()
   const markerPath = join(userDir, '.guiying-bootstrap-done')
-  const logs: string[] = []
-  const log = (msg: string) => {
-    logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`)
-    console.log(`[guiying] ${msg}`)
-  }
+  const log = (msg: string) => console.log(`[guiying] ${msg}`)
 
   log('=== guiying bootstrap start ===')
 
   // ── 已初始化过 ──────────────────────────────────────────
   if (existsSync(markerPath)) {
-    log('Bootstrap already completed, checking for new packages...')
-    if (isPiCliInstalled()) {
-      installPiPackages(log)
-    }
+    log('Bootstrap already completed, skipping')
     return
   }
 
   try {
     // ── 1. Skills ────────────────────────────────────────
     {
-      const srcDir = join(bundled, 'skills')
-      const dstDir = join(userDir, 'skills')
-      mkdirSync(dstDir, { recursive: true })
-      cpSync(srcDir, dstDir, { recursive: true, force: true })
-      log('Skills installed ✓ (23)')
+      const src = join(bundled, 'skills')
+      const dst = join(userDir, 'skills')
+      mkdirSync(dst, { recursive: true })
+      cpSync(src, dst, { recursive: true, force: true })
+      log('Skills copied ✓ (23)')
     }
 
     // ── 2. Extensions ───────────────────────────────────
     {
-      const srcDir = join(bundled, 'extensions')
-      const dstDir = join(userDir, 'extensions')
-      mkdirSync(dstDir, { recursive: true })
-      cpSync(srcDir, dstDir, { recursive: true, force: true })
-      log('Extensions installed ✓ (2)')
+      const src = join(bundled, 'extensions')
+      const dst = join(userDir, 'extensions')
+      mkdirSync(dst, { recursive: true })
+      cpSync(src, dst, { recursive: true, force: true })
+      log('Extensions copied ✓ (2)')
     }
 
     // ── 3. Settings ─────────────────────────────────────
     {
-      const srcSettings = join(bundled, 'config', 'settings.json')
-      const dstSettings = join(userDir, 'settings.json')
-      if (existsSync(srcSettings)) {
-        const bundledCfg = JSON.parse(readFileSync(srcSettings, 'utf8'))
+      const src = join(bundled, 'config', 'settings.json')
+      const dst = join(userDir, 'settings.json')
+      if (existsSync(src)) {
+        const bundledCfg = JSON.parse(readFileSync(src, 'utf8'))
         let finalCfg = bundledCfg
-        if (existsSync(dstSettings)) {
-          const existingCfg = JSON.parse(readFileSync(dstSettings, 'utf8'))
+        if (existsSync(dst)) {
+          const existingCfg = JSON.parse(readFileSync(dst, 'utf8'))
           finalCfg = { ...bundledCfg, ...existingCfg }
           finalCfg.skills = [...new Set([...(bundledCfg.skills || []), ...(existingCfg.skills || [])])]
           finalCfg.extensions = [...new Set([...(bundledCfg.extensions || []), ...(existingCfg.extensions || [])])]
           finalCfg.packages = [...new Set([...(bundledCfg.packages || []), ...(existingCfg.packages || [])])]
         }
         mkdirSync(userDir, { recursive: true })
-        writeFileSync(dstSettings, JSON.stringify(finalCfg, null, 2))
+        writeFileSync(dst, JSON.stringify(finalCfg, null, 2))
         log('Settings merged ✓')
       }
     }
 
-    // ── 4. Pi CLI ───────────────────────────────────────
-    if (!isPiCliInstalled()) {
-      installPiCli(log)
+    // ── 4. Pi 运行时（离线复制，无需网络）─────────────────
+    const runtimeDir = getBundledPiRuntimeDir()
+    if (existsSync(runtimeDir)) {
+      const dst = join(userDir, 'npm')
+      mkdirSync(dst, { recursive: true })
+      cpSync(runtimeDir, dst, { recursive: true, force: true })
+      log('Pi runtime copied ✓ (offline)')
     } else {
-      log('Pi CLI already installed ✓')
+      log('Pi runtime bundle not found — user needs npm install -g pi')
     }
 
-    // ── 5. Pi Packages ──────────────────────────────────
-    if (isPiCliInstalled()) {
-      installPiPackages(log)
-    }
-
-    writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString(), logs }, null, 2))
+    writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
     log('=== guiying bootstrap complete ===')
   } catch (err: any) {
     log(`Bootstrap error: ${err?.message || err}`)
