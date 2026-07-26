@@ -17,110 +17,89 @@ export type AutomationTemplate = {
   missedRunGraceMinutes?: string
 }
 
+/**
+ * guiying 预设自动化模板 — 替换 Orca 默认的 4 个开发模板。
+ *
+ * 每个模板自动启动 Pi agent，加载对应的 skill，
+ * 用户点击即可开始对话，无需手动配置。
+ */
 export const getAutomationTemplates = createLocalizedCatalog((): AutomationTemplate[] => [
   {
-    id: 'repo-health-weekday',
+    id: 'guiying-strategy-ppt',
     category: translate(
       'auto.components.automations.automation.templates.repoHealth.category',
-      'Repo health'
+      '品牌策略'
     ),
     label: translate(
       'auto.components.automations.automation.templates.b84757677d',
-      'Weekday repo audit'
+      '策略PPT'
     ),
     description: translate(
       'auto.components.automations.automation.templates.a7fbd32ddb',
-      'Check dependencies, failing tests, and risky open changes each weekday.'
+      '用4alaodeng、fxxk4a、策展等营销方法论，一键生成品牌策略PPT。先分析客群，再给定位建议，最后产出可落地策略方案。'
     ),
     name: translate(
       'auto.components.automations.automation.templates.repoHealth.name',
-      'Weekday repo audit'
+      '策略PPT'
     ),
     prompt: translate(
       'auto.components.automations.automation.templates.repoHealth.prompt',
-      'Review the repository health. Check dependency updates, failing tests, lint/typecheck status, and risky open changes. Summarize findings and suggest the next action.'
+      '使用4alaodeng、fxxk4a、策展等营销方法论skills，帮我制作一份品牌策略PPT。先分析目标客群，再给出定位建议，最后产出可落地的策略方案。如果需要，可以用pro-presentation或html-ppt生成正式的PPT文件。'
     ),
-    preset: 'weekdays',
-    time: '09:00',
-    missedRunGraceMinutes: '720'
+    preset: 'daily',
+    agentId: 'pi',
+    time: '09:00'
   },
   {
-    id: 'release-prep-weekly',
+    id: 'guiying-event-marketing',
     category: translate(
       'auto.components.automations.automation.templates.releasePrep.category',
-      'Release prep'
+      '事件营销'
     ),
     label: translate(
       'auto.components.automations.automation.templates.39ed39280a',
-      'Release readiness'
+      '出圈事件营销'
     ),
     description: translate(
       'auto.components.automations.automation.templates.513401db93',
-      'Prepare a weekly release risk summary from the current project state.'
+      '用4azhongdeng刷屏营销方法论，设计出圈事件方案。含事件创意、传播路径、执行时间线和预算估算。'
     ),
     name: translate(
       'auto.components.automations.automation.templates.releasePrep.name',
-      'Release readiness review'
+      '出圈事件营销'
     ),
     prompt: translate(
       'auto.components.automations.automation.templates.releasePrep.prompt',
-      'Prepare a release readiness summary. Look for blockers, unmerged risky changes, missing validation, and documentation gaps. End with a concise release/no-release recommendation.'
+      '使用4azhongdeng的刷屏营销方法论，为我的品牌设计一个出圈事件营销方案。需要包含：事件创意、传播路径、执行时间线和预算估算。'
     ),
-    preset: 'weekly',
-    time: '14:00',
-    dayOfWeek: '4',
-    missedRunGraceMinutes: '1440'
+    preset: 'daily',
+    agentId: 'pi',
+    time: '10:00'
   },
   {
-    id: 'recurring-review-daily',
+    id: 'guiying-curation-narrative',
     category: translate(
       'auto.components.automations.automation.templates.recurringReview.category',
-      'Recurring review'
+      '空间叙事'
     ),
     label: translate(
       'auto.components.automations.automation.templates.6023075b27',
-      'Daily change review'
+      '品牌叙事策展'
     ),
     description: translate(
       'auto.components.automations.automation.templates.3b7281c75f',
-      'Scan recent work and call out correctness, UX, and test coverage risks.'
+      '用策展-framework方法论（原研哉/安藤忠雄/柳宗悦），设计品牌空间叙事方案。包括动线规划、感官体验、在地文化融入。'
     ),
     name: translate(
       'auto.components.automations.automation.templates.recurringReview.name',
-      'Daily change review'
+      '品牌叙事策展'
     ),
     prompt: translate(
       'auto.components.automations.automation.templates.recurringReview.prompt',
-      'Review recent changes in this workspace. Focus on correctness risks, UX regressions, missing tests, and follow-up tasks. Keep the report short and actionable.'
+      '使用策展方法论（基于原研哉、安藤忠雄、柳宗悦等大师），帮我设计一个品牌空间叙事方案。包括：动线规划、感官体验设计、在地文化融入策略。'
     ),
     preset: 'daily',
-    time: '16:30',
-    missedRunGraceMinutes: '180'
-  },
-  {
-    id: 'maintenance-hourly',
-    category: translate(
-      'auto.components.automations.automation.templates.maintenance.category',
-      'Maintenance'
-    ),
-    label: translate(
-      'auto.components.automations.automation.templates.8a0228bea3',
-      'Hourly queue check'
-    ),
-    description: translate(
-      'auto.components.automations.automation.templates.37571fcb16',
-      'Look for stuck work, stale generated files, and failed local validation.'
-    ),
-    name: translate(
-      'auto.components.automations.automation.templates.maintenance.name',
-      'Hourly maintenance check'
-    ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.maintenance.prompt',
-      'Check for stuck work, stale generated files, failing validation, and anything that needs human attention. Report only actionable issues.'
-    ),
-    preset: 'hourly',
-    time: '00:15',
-    missedRunGraceMinutes: '30'
+    agentId: 'pi',
+    time: '11:00'
   }
 ])
