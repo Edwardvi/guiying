@@ -153,3 +153,47 @@ jobs:
           name: guiying-windows
           path: dist/guiying-windows-setup*.exe
           if-no-files-found: error
+
+  # -------------------------------------------------------------------
+  # Release — create GitHub Release + attach all artifacts (tags only)
+  # -------------------------------------------------------------------
+  release:
+    needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Display structure
+        run: ls -R dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: guiying ${{ github.ref_name }}
+          body: |
+            ## guiying ${{ github.ref_name }}
+            
+            Pi coding agent desktop IDE with 23 skills + 2 extensions bundled.
+            
+            ### macOS
+            - Download the DMG for your Mac (Apple Silicon or Intel)
+            - Open DMG, drag guiying to Applications
+            - First launch will auto-install Pi and skills
+            
+            ### Windows
+            - Download the .exe installer
+            - Run installer, follow prompts
+            - First launch will auto-install Pi and skills
+            
+            ### Skills included
+            4alaodeng, 4azhongdeng, cavecrew, caveman (7 modules), design-deck, editorial-deck, fxxk4a, grill-me, nuwa, planning-with-files, pro-presentation, guizang-ppt-skill, html-ppt, web-access, huashu-design, mao, 策展, 策展-framework
+          files: dist/*
+          generate_release_notes: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
