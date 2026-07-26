@@ -72,7 +72,7 @@ jobs:
 
       # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
       - name: Bundle Pi runtime
-        run: node config/scripts/bundle-pi.mjs
+        run: node config/scripts/bundle-pi.cjs
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           npm_config_arch: ${{ matrix.arch }}
@@ -150,7 +150,7 @@ jobs:
 
       # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
       - name: Bundle Pi runtime
-        run: node config/scripts/bundle-pi.mjs
+        run: node config/scripts/bundle-pi.cjs
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
