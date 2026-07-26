@@ -15,9 +15,12 @@
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = resolve(import.meta.dirname, '..', '..')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = join(__filename, '..')
+const ROOT = join(__dirname, '..', '..')
 const BUNDLE_DIR = join(ROOT, 'resources', 'pi-runtime')
 const BUNDLE_NODE_MODULES = join(BUNDLE_DIR, 'node_modules')
 
