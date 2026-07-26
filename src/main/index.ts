@@ -32,6 +32,7 @@ import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './t
 import { classifyError } from './telemetry/classify-error'
 import { runManagedHookInstallers } from './agent-hooks/install-telemetry'
 import { runPiBootstrap } from './pi-bootstrap'
+import { registerGuiyingIpc } from './guiying-ipc'
 import {
   isAgentStatusHooksEnabled,
   MANAGED_AGENT_HOOK_INSTALLERS,
@@ -2219,6 +2220,9 @@ app.whenReady().then(async () => {
   // Why: fire-and-forget — copies bundled Pi skills/extensions/config on first
   // launch so users get the full Pi toolkit out of the box.
   void runPiBootstrap()
+
+  // guiying custom IPC handlers (API key setup, auth check)
+  registerGuiyingIpc()
 
   registerAppMenu({
     appMenuLabel: devInstanceIdentity.name,

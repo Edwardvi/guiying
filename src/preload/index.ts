@@ -4356,6 +4356,13 @@ const api = {
     }
   },
 
+  guiying: {
+    checkOpenCodeAuth: (): Promise<{ configured: boolean }> =>
+      ipcRenderer.invoke('guiying:checkOpenCodeAuth'),
+    saveOpenCodeKey: (key: string): Promise<{ success: boolean; message: string }> =>
+      ipcRenderer.invoke('guiying:saveOpenCodeKey', key),
+  },
+
   e2e: {
     getConfig: () => preloadE2EConfig
   },

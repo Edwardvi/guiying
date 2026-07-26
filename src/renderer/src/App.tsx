@@ -66,6 +66,7 @@ import { TelemetryFirstLaunchSurface } from './components/TelemetryFirstLaunchSu
 import { ZoomOverlay } from './components/ZoomOverlay'
 import { onOnboardingReopened } from './components/onboarding/show-onboarding-event'
 import { shouldShowOnboarding } from './components/onboarding/should-show-onboarding'
+import { OpenCodeSetup } from './components/onboarding/OpenCodeSetup'
 import { MarkdownTemplatePicker } from './components/editor/MarkdownTemplatePicker'
 import { FloatingTerminalToggleButton } from './components/floating-terminal/FloatingTerminalToggleButton'
 import { OrcaProfileSwitcher } from './components/orca-profiles/OrcaProfileSwitcher'
@@ -686,7 +687,22 @@ function App(): React.JSX.Element {
   const unmountAddRepoDialogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [featureTipCliInstalled, setFeatureTipCliInstalled] = useState<boolean | null>(null)
   const [onboardingSettingsDetour, setOnboardingSettingsDetour] = useState(false)
+  const [guiyingSetupVisible, setGuiyingSetupVisible] = useState(false)
+  const [guiyingSetupChecked, setGuiyingSetupChecked] = useState(false)
   const shouldRenderOnboarding = onboarding !== null && shouldShowOnboarding(onboarding)
+
+  // ── guiying: 检查 OpenCodeGo 是否已配置 ──────────────
+  useEffect(() => {
+    if (guiyingSetupChecked) return
+    void window.api.guiying.checkOpenCodeAuth().then(({ configured }) => {
+      setGuiyingSetupChecked(true)
+      if (!configured) {
+        setGuiyingSetupVisible(true)
+      }
+    }).catch(() => {
+      setGuiyingSetupChecked(true)
+    })
+  }, [guiyingSetupChecked])
   const onboardingSettingsDetourActive =
     onboardingSettingsDetour && activeView === 'settings' && shouldRenderOnboarding
   if (onboardingSettingsDetour && !onboardingSettingsDetourActive) {
@@ -2080,6 +2096,18 @@ function App(): React.JSX.Element {
         <OrcaProfileSwitcher />
       </div>
     ) : null
+
+  if (guiyingSetupVisible && persistedUIReady) {
+    return (
+      <div className="flex h-dvh w-screen items-center justify-center bg-background">
+        <OpenCodeSetup
+          onDone={(result) => {
+            setGuiyingSetupVisible(false)
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div
