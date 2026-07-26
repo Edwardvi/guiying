@@ -693,15 +693,17 @@ function App(): React.JSX.Element {
 
   // ── guiying: 检查 OpenCodeGo 是否已配置 ──────────────
   useEffect(() => {
-    if (guiyingSetupChecked) return
-    void window.api.guiying.checkOpenCodeAuth().then(({ configured }) => {
+    let cancelled = false
+    window.api.guiying.checkOpenCodeAuth().then(({ configured }) => {
+      if (cancelled) return
       setGuiyingSetupChecked(true)
       if (!configured) {
         setGuiyingSetupVisible(true)
       }
     }).catch(() => {
-      setGuiyingSetupChecked(true)
+      if (!cancelled) setGuiyingSetupChecked(true)
     })
+    return () => { cancelled = true }
   }, [guiyingSetupChecked])
   const onboardingSettingsDetourActive =
     onboardingSettingsDetour && activeView === 'settings' && shouldRenderOnboarding

@@ -3,8 +3,8 @@
  *
  * 在 app.whenReady() 后异步调用。幂等：已初始化则跳过。
  *
- * 捆绑内容（构建时由 config/scripts/bundle-pi.mjs 预装）:
- *   resources/pi-bundle/        skills + extensions + config (169MB)
+ * 捆绑内容（构建时由 config/scripts/bundle-pi.cjs 预装）:
+ *   resources/pi-bundle/        skills + extensions + config (~22MB)
  *   resources/pi-runtime/       Pi CLI + 4 npm 包
  *
  * 启动时做的事:

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { translate } from '@/i18n/i18n'
 
 export type OpenCodeSetupResult = 'saved' | 'skipped'
 
