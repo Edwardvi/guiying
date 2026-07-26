@@ -1887,7 +1887,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
       window.api.ui.set({ setupScriptPromptDismissedRepoIds: next }).catch(console.error)
       return { setupScriptPromptDismissedRepoIds: next }
     }),
-  setupGuideSidebarDismissed: false,
+  setupGuideSidebarDismissed: true, // guiying: suppress Orca CLI setup prompt
   setSetupGuideSidebarDismissed: (dismissed) =>
     set((s) => {
       if (s.setupGuideSidebarDismissed === dismissed) {
