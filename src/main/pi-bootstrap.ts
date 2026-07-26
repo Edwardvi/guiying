@@ -15,7 +15,7 @@
  *
  * 自动化任务模板（策略PPT 等）已编译进 UI 源码，无需运行时注入。
  */
-import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, symlinkSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 // ---------------------------------------------------------------------------
@@ -55,39 +55,39 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     return
   }
 
+  // 使用 Electron 内置的 Node.js 来运行 Pi（用户无需单独安装 Node）
+  const electronBin = process.execPath  // Electron 可执行文件路径
+  const piCliPath = join(piEntry, 'dist', 'cli.js')
+
   if (process.platform === 'win32') {
-    // Windows: 写 pi.cmd 到 %APPDATA%/npm/
     const npmDir = join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'npm')
     mkdirSync(npmDir, { recursive: true })
     const cmdPath = join(npmDir, 'pi.cmd')
-    const piCliPath = join(piEntry, 'dist', 'cli.js')
     writeFileSync(cmdPath,
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
-      `node "${piCliPath}" %*\r\n`
+      `set ELECTRON_RUN_AS_NODE=1\r\n` +
+      `"${electronBin}" "${piCliPath}" %*\r\n`
     )
     log(`pi.cmd registered at ${cmdPath} ✓`)
   } else {
-    // macOS/Linux: symlink 到 ~/.local/bin/pi
     const binDir = join(home, '.local', 'bin')
     mkdirSync(binDir, { recursive: true })
     const linkPath = join(binDir, 'pi')
-    const piCliPath = join(piEntry, 'dist', 'cli.js')
 
-    // 写入 shim 而不是直接 symlink，以便设置 PI_CODING_AGENT_DIR
     const shim = [
       '#!/bin/sh',
       `export PI_CODING_AGENT_DIR="${userDir}"`,
-      `exec node "${piCliPath}" "$@"`
+      'export ELECTRON_RUN_AS_NODE=1',
+      `exec "${electronBin}" "${piCliPath}" "$@"`
     ].join('\n')
 
     try { unlinkSync(linkPath) } catch {}
     writeFileSync(linkPath, shim)
     chmodSync(linkPath, 0o755)
-    log(`pi registered at ${linkPath} ✓`)
+    log(`pi registered at ${linkPath} ✓ (uses Electron's Node.js)`)
   }
 
-  // 确保 ~/.local/bin 在 PATH 中（macOS/Linux）
   if (process.platform !== 'win32') {
     ensureLocalBinInPath(home, log)
   }
