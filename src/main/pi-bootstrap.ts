@@ -124,7 +124,6 @@ function ensureLocalBinInPath(home: string, log: (msg: string) => void): void {
 }
 
 function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
-  // 通过注册表将目录加入用户 PATH（持久化，无需管理员权限）
   try {
     const result = execFileSync('reg', [
       'query',
@@ -143,6 +142,22 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
         '/d', newPath,
         '/f'
       ], { stdio: 'ignore' })
+
+      // 立即对当前进程生效（新开的子进程会继承）
+      process.env.Path = process.env.Path
+        ? `${process.env.Path};${dir}`
+        : dir
+
+      // 广播 WM_SETTINGCHANGE，通知其他运行中的进程刷新环境变量
+      try {
+        execFileSync('powershell', [
+          '-NoProfile', '-NonInteractive', '-Command',
+          'Add-Type -Name Native -Namespace Win32 -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);\'; ' +
+          '$HWND_BROADCAST = 0xffff; $WM_SETTINGCHANGE = 0x001a; $SMTO_ABORTIFHUNG = 0x0002; $null = New-Object UIntPtr; ' +
+          '[Win32.Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, "Environment", $SMTO_ABORTIFHUNG, 5000, [ref]$null)'
+        ], { stdio: 'ignore', timeout: 10000 })
+      } catch { /* best-effort */ }
+
       log(`Added ${dir} to user PATH ✓`)
     }
   } catch (err: any) {
