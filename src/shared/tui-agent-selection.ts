@@ -4,6 +4,7 @@ import { isTuiAgent } from './tui-agent-config'
 // Keep this order in sync with the desktop agent catalog. It defines the
 // automatic fallback priority when the user has not chosen a default agent.
 export const TUI_AGENT_AUTO_PICK_ORDER = [
+  'pi',
   'claude',
   'claude-agent-teams',
   'openclaude',
@@ -13,7 +14,6 @@ export const TUI_AGENT_AUTO_PICK_ORDER = [
   'opencode',
   'mimo-code',
   'ante',
-  'pi',
   'omp',
   'gemini',
   'antigravity',
@@ -40,9 +40,10 @@ export const TUI_AGENT_AUTO_PICK_ORDER = [
   'openclaw'
 ] as const satisfies readonly TuiAgent[]
 
-// Why: fresh installs should expose Claude Agent Teams in agent pickers; the
-// persistence migration separately preserves the old hidden default for legacy profiles.
-export const DEFAULT_DISABLED_TUI_AGENTS = [] as const satisfies readonly TuiAgent[]
+// guiying: default disable all agents except Pi.
+// Users can re-enable others in Settings → Agents if needed.
+export const DEFAULT_DISABLED_TUI_AGENTS: readonly TuiAgent[] =
+  TUI_AGENT_AUTO_PICK_ORDER.filter((a) => a !== 'pi')
 
 export function pickTuiAgent(
   preferred: TuiAgent | 'blank' | null | undefined,
