@@ -2101,12 +2101,14 @@ function App(): React.JSX.Element {
 
   if (guiyingSetupVisible && persistedUIReady) {
     return (
-      <div className="flex h-dvh w-screen items-center justify-center bg-background">
-        <OpenCodeSetup
-          onDone={(result) => {
-            setGuiyingSetupVisible(false)
-          }}
-        />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+        <div className="flex w-full max-w-[480px] flex-col gap-6 rounded-xl border border-border bg-card p-8 shadow-lg">
+          <OpenCodeSetup
+            onDone={(result) => {
+              setGuiyingSetupVisible(false)
+            }}
+          />
+        </div>
       </div>
     )
   }
