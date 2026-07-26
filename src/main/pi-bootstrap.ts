@@ -77,10 +77,18 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     // 将 guiying/bin 加入用户 PATH（持久化）
     addToWindowsUserPath(localDir, log)
   } else {
-    const binDir = join(home, '.local', 'bin')
-    mkdirSync(binDir, { recursive: true })
-    const linkPath = join(binDir, 'pi')
+    // macOS/Linux: 优先写入 /usr/local/bin（在默认 PATH 上，GUI app 可用）
+    let binDir = '/usr/local/bin'
+    try {
+      mkdirSync('/usr/local/bin', { recursive: true })
+    } catch {
+      // /usr/local/bin 不可写，回退到 ~/.local/bin
+      binDir = join(home, '.local', 'bin')
+      mkdirSync(binDir, { recursive: true })
+      ensureLocalBinInPath(home, log)
+    }
 
+    const linkPath = join(binDir, 'pi')
     const shim = [
       '#!/bin/sh',
       `export PI_CODING_AGENT_DIR="${userDir}"`,
@@ -90,12 +98,8 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
 
     try { unlinkSync(linkPath) } catch {}
     writeFileSync(linkPath, shim)
-    chmodSync(linkPath, 0o755)
+    try { chmodSync(linkPath, 0o755) } catch {}
     log(`pi registered at ${linkPath} ✓ (uses Electron's Node.js)`)
-  }
-
-  if (process.platform !== 'win32') {
-    ensureLocalBinInPath(home, log)
   }
 }
 
