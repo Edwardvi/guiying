@@ -165,6 +165,51 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
   }
 }
 
+function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
+  const authFile = join(userDir, 'auth.json')
+  if (!existsSync(authFile)) {
+    log('⚠ OpenCodeGo not configured — launching login...')
+    launchOpenCodeGoLogin(userDir, log)
+    return
+  }
+  try {
+    const auth = JSON.parse(readFileSync(authFile, 'utf8'))
+    if (auth['opencode-go']) {
+      log('OpenCodeGo already authenticated ✓')
+    } else {
+      log('⚠ OpenCodeGo not configured — launching login...')
+      launchOpenCodeGoLogin(userDir, log)
+    }
+  } catch {
+    log('⚠ Cannot read auth.json, launching login...')
+    launchOpenCodeGoLogin(userDir, log)
+  }
+}
+
+function launchOpenCodeGoLogin(userDir: string, log: (msg: string) => void): void {
+  try {
+    const shimPath = process.platform === 'win32'
+      ? join(process.env.LOCALAPPDATA || '', 'guiying', 'bin', 'pi.cmd')
+      : '/usr/local/bin/pi'
+
+    if (!existsSync(shimPath)) {
+      log('⚠ pi shim not found at ' + shimPath + ', cannot auto-launch login')
+      return
+    }
+
+    const { spawn } = require('node:child_process')
+    const child = spawn(shimPath, ['/login', 'opencode-go'], {
+      shell: true,
+      stdio: 'ignore',
+      detached: true
+    })
+    child.unref()
+    log('✓ OpenCodeGo login launched — check your browser')
+  } catch (err: any) {
+    log(`⚠ Login launch failed: ${err?.message || err}`)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 主入口
 // ---------------------------------------------------------------------------
@@ -261,6 +306,9 @@ export async function runPiBootstrap(): Promise<void> {
 
     writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
     log('=== guiying bootstrap complete ===')
+
+    // ── 6. OpenCodeGo 登录检查 ─────────────────────────
+    checkOpenCodeGoAuth(userDir, log)
   } catch (err: any) {
     log(`Bootstrap error: ${err?.message || err}`)
     console.error('[guiying] Bootstrap error:', err)
