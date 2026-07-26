@@ -60,9 +60,11 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   const piCliPath = join(piEntry, 'dist', 'cli.js')
 
   if (process.platform === 'win32') {
-    const npmDir = join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'npm')
-    mkdirSync(npmDir, { recursive: true })
-    const cmdPath = join(npmDir, 'pi.cmd')
+    // 写入 %LOCALAPPDATA%/guiying/bin/pi.cmd
+    // 这个目录在注册 pi 命令时不依赖 npm 的 PATH 配置
+    const localDir = join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'guiying', 'bin')
+    mkdirSync(localDir, { recursive: true })
+    const cmdPath = join(localDir, 'pi.cmd')
     writeFileSync(cmdPath,
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
@@ -70,6 +72,9 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
       `"${electronBin}" "${piCliPath}" %*\r\n`
     )
     log(`pi.cmd registered at ${cmdPath} ✓`)
+
+    // 将 guiying/bin 加入用户 PATH（持久化）
+    addToWindowsUserPath(localDir, log)
   } else {
     const binDir = join(home, '.local', 'bin')
     mkdirSync(binDir, { recursive: true })
@@ -99,14 +104,46 @@ function ensureLocalBinInPath(home: string, log: (msg: string) => void): void {
     ? join(home, '.zshrc')
     : join(home, '.bashrc')
 
-  if (existsSync(shellRc)) {
-    const content = readFileSync(shellRc, 'utf8')
-    if (!content.includes(localBin)) {
-      writeFileSync(shellRc,
-        content + `\n# guiying — Pi agent PATH\nexport PATH="${localBin}:$PATH"\n`
-      )
-      log(`Added ${localBin} to ${shellRc} ✓`)
+  if (!existsSync(shellRc)) return
+
+  const content = readFileSync(shellRc, 'utf8')
+  // 精确行匹配，防止重复追加
+  const exportLine = `export PATH="${localBin}:$PATH"`
+  if (content.split('\n').some((line) => line.trim() === exportLine.trim())) {
+    return  // 已存在
+  }
+  writeFileSync(shellRc,
+    content.trimEnd() + `\n# guiying — Pi agent PATH\n${exportLine}\n`
+  )
+  log(`Added ${localBin} to ${shellRc} ✓`)
+}
+
+function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
+  // 通过注册表将目录加入用户 PATH（持久化，无需管理员权限）
+  try {
+    const { execFileSync: efs } = require('node:child_process')
+    // 读取当前用户 PATH
+    const result = efs('reg', [
+      'query',
+      'HKCU\\Environment',
+      '/v', 'Path'
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const currentPath = result.match(/Path\s+REG_[A-Z]+\s+(.+)/)?.[1]?.trim() || ''
+
+    if (!currentPath.split(';').some((p) => p.trim().toLowerCase() === dir.toLowerCase())) {
+      const newPath = currentPath ? `${currentPath};${dir}` : dir
+      efs('reg', [
+        'add',
+        'HKCU\\Environment',
+        '/v', 'Path',
+        '/t', 'REG_EXPAND_SZ',
+        '/d', newPath,
+        '/f'
+      ], { stdio: 'ignore' })
+      log(`Added ${dir} to user PATH ✓`)
     }
+  } catch (err: any) {
+    log(`Windows PATH update failed (non-fatal): ${err?.message || err}`)
   }
 }
 

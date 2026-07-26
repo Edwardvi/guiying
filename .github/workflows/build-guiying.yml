@@ -75,6 +75,7 @@ jobs:
         run: node config/scripts/bundle-pi.mjs
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          npm_config_arch: ${{ matrix.arch }}
 
       # macOS build without signing (local ad-hoc)
       - name: Package macOS (unsigned)
