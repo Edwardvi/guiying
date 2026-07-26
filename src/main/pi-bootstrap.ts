@@ -17,6 +17,7 @@
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -121,9 +122,7 @@ function ensureLocalBinInPath(home: string, log: (msg: string) => void): void {
 function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
   // 通过注册表将目录加入用户 PATH（持久化，无需管理员权限）
   try {
-    const { execFileSync: efs } = require('node:child_process')
-    // 读取当前用户 PATH
-    const result = efs('reg', [
+    const result = execFileSync('reg', [
       'query',
       'HKCU\\Environment',
       '/v', 'Path'
@@ -132,7 +131,7 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
 
     if (!currentPath.split(';').some((p) => p.trim().toLowerCase() === dir.toLowerCase())) {
       const newPath = currentPath ? `${currentPath};${dir}` : dir
-      efs('reg', [
+      execFileSync('reg', [
         'add',
         'HKCU\\Environment',
         '/v', 'Path',

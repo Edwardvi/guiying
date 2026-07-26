@@ -198,12 +198,12 @@ jobs:
             ### macOS
             - Download the DMG for your Mac (Apple Silicon or Intel)
             - Open DMG, drag guiying to Applications
-            - First launch will auto-install Pi and skills
+            - First launch copies Pi and all skills offline (no network needed)
             
             ### Windows
             - Download the .exe installer
             - Run installer, follow prompts
-            - First launch will auto-install Pi and skills
+            - First launch copies Pi and all skills offline (no network needed)
             
             ### Skills included
             4alaodeng, 4azhongdeng, cavecrew, caveman (7 modules), design-deck, editorial-deck, fxxk4a, grill-me, nuwa, planning-with-files, pro-presentation, guizang-ppt-skill, html-ppt, web-access, huashu-design, mao, 策展, 策展-framework

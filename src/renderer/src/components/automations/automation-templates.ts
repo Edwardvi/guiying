@@ -21,8 +21,7 @@ export type AutomationTemplate = {
  * guiying 预设自动化模板。
  *
  * 每个模板指定 agentId='pi'，用户点击即启动 Pi agent 开始对话。
- * translate() 的 key 使用 guiying 前缀以避免与 Orca 原有 key 冲突。
- * 第二个参数是默认文案（中文为主，英文 locale 会回退到此）。
+ * 文案直接使用中文，不经过 translate() 以避免与 Orca 原有 i18n key 冲突。
  */
 export const getAutomationTemplates = createLocalizedCatalog((): AutomationTemplate[] => [
   {
