@@ -2,10 +2,10 @@
   "defaultProvider": "opencode-go",
   "defaultModel": "deepseek-v4-pro",
   "skills": [
-    "~/.pi/agent/skills"
+    "~/.pi/agent/guiying-skills"
   ],
   "extensions": [
-    "~/.pi/agent/extensions"
+    "~/.pi/agent/guiying-extensions"
   ],
   "packages": [
     "npm:pi-web-access",

@@ -15,7 +15,7 @@
  *
  * 自动化任务模板（策略PPT 等）已编译进 UI 源码，无需运行时注入。
  */
-import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
@@ -177,20 +177,33 @@ export async function runPiBootstrap(): Promise<void> {
   try {
     // ── 1. Skills ────────────────────────────────────────
     {
-      const src = join(bundled, 'skills')
-      const dst = join(userDir, 'skills')
-      mkdirSync(dst, { recursive: true })
-      cpSync(src, dst, { recursive: true, force: true })
-      log('Skills copied ✓ (23)')
+      const srcDir = join(bundled, 'skills')
+      const dstDir = join(userDir, 'guiying-skills')
+      mkdirSync(dstDir, { recursive: true })
+      // 安全复制：不覆盖用户已有的同名 skill
+      for (const name of readdirSync(srcDir)) {
+        const src = join(srcDir, name)
+        const dst = join(dstDir, name)
+        if (!existsSync(dst)) {
+          cpSync(src, dst, { recursive: true })
+        }
+      }
+      log('Skills copied ✓ (23) → guiying-skills/')
     }
 
     // ── 2. Extensions ───────────────────────────────────
     {
-      const src = join(bundled, 'extensions')
-      const dst = join(userDir, 'extensions')
-      mkdirSync(dst, { recursive: true })
-      cpSync(src, dst, { recursive: true, force: true })
-      log('Extensions copied ✓ (2)')
+      const srcDir = join(bundled, 'extensions')
+      const dstDir = join(userDir, 'guiying-extensions')
+      mkdirSync(dstDir, { recursive: true })
+      for (const name of readdirSync(srcDir)) {
+        const src = join(srcDir, name)
+        const dst = join(dstDir, name)
+        if (!existsSync(dst)) {
+          cpSync(src, dst)
+        }
+      }
+      log('Extensions copied ✓ (2) → guiying-extensions/')
     }
 
     // ── 3. Settings ─────────────────────────────────────
