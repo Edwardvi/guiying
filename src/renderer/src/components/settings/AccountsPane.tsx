@@ -1913,7 +1913,10 @@ export function AccountsPane({
     matchesSettingsSearch(searchQuery, getAccountsGrokSearchEntries()) ? (
       <GrokAccountsSection key="grok" />
     ) : null
-  ].filter(Boolean)
+  ].filter(Boolean).filter(
+    // guiying: only show OpenCodeGo provider accounts
+    (s: any) => s?.key === 'account-runtime' || s?.key === 'opencode-go'
+  )
 
   return (
     <div className="space-y-8">
