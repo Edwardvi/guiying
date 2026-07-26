@@ -131,7 +131,7 @@
       "df1d56bf87": "The workspace shell hit an error.",
       "9e0b441a91": "Toggle right sidebar",
       "e81217c1b7": "Hide App Name",
-      "5096cbbc86": "Orca",
+      "5096cbbc86": "guiying",
       "8b0b8eb54f": "Application menu",
       "caea5b51b9": "Restart now",
       "0a9e810705": "Changes won't be saved until restart. Your previous tabs are safe on disk.",
@@ -3044,7 +3044,7 @@
             "bbcd9b7b85": "Collapse workspace",
             "c4a8968bdd": "Expand workspace",
             "b10695d6ce": "Kill session",
-            "288a4dd177": "Orca",
+            "288a4dd177": "guiying",
             "53dd5560ae": "Collapse Orca",
             "e419d27083": "Expand Orca",
             "41ae4fa725": "Killing…",
@@ -3518,7 +3518,7 @@
           "2d9eb39264": "Total tokens",
           "beb6f24f37": "Est. cost",
           "da62578d9d": "Usage",
-          "0eb31e79ee": "Orca IDE",
+          "0eb31e79ee": "guiying",
           "960324e9b8": "events",
           "6adac63cfe": "turns"
         },
@@ -10839,7 +10839,7 @@
           "1b5e182e9f": "Welcome to Orca",
           "4db04f2f57": "of",
           "adaa0aa627": "Go to onboarding step {{value0}}: {{value1}}",
-          "a249f81538": "Orca",
+          "a249f81538": "guiying",
           "277ba45540": "Orca onboarding",
           "97c42cda00": "Install the GitHub CLI to:",
           "ae3b00ca82": "Set up GitHub tasks",
@@ -11147,7 +11147,7 @@
             "00a6903322": "Agents spawned",
             "c0e2e9dcd9": "Welcome back",
             "af761a0c0d": "Settings",
-            "5d94e8ddcc": "Orca"
+            "5d94e8ddcc": "guiying"
           },
           "TerminalSlide": {
             "0bb39f8fe6": "Send",
@@ -12892,7 +12892,7 @@
         "AutomationEditorDialogHeader": {
           "31f9253920": "Use template",
           "7e35393632": "Hermes",
-          "6f309eef8d": "Orca",
+          "6f309eef8d": "guiying",
           "58f56b73d9": "Automation name",
           "1d9826933e": "Weekday repo audit",
           "4133d33862": "Create automation",
