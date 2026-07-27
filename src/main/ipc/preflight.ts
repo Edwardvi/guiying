@@ -113,6 +113,22 @@ export async function detectInstalledAgents(context?: PreflightRuntimeContext): 
       .filter(({ cmd, installedOnPath }) => installedOnPath || installDirCommands.has(cmd))
       .map(({ cmd }) => cmd)
   )
+
+  // ── guiying: Pi 兜底检测（不依赖 PATH）────────────────
+  if (!foundCommands.has('pi')) {
+    const { existsSync: es } = require('node:fs')
+    const { homedir: hd } = require('node:os')
+    const homePath = process.env.USERPROFILE || process.env.HOME || hd()
+    const candidates = [
+      join(homePath, 'pi.cmd'),
+      join(homePath, 'pi'),
+      join(process.env.APPDATA || '', 'npm', 'pi.cmd')
+    ]
+    if (candidates.some((p) => es(p))) {
+      foundCommands.add('pi')
+    }
+  }
+
   return resolveDetectedTuiAgentIds(
     KNOWN_TUI_AGENT_DETECTION_COMMANDS,
     foundCommands,

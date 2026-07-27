@@ -17,7 +17,7 @@
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -80,14 +80,14 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     writeFileSync(homeCmdPath, piCmdContent)
     log(`pi.cmd → ${homeCmdPath} ✓`)
 
-    // 副本 2: WindowsApps（已在 PATH，立即生效）
+    // 副本 2: %APPDATA%/npm（Node.js 用户已在 PATH，立即生效）
     try {
-      const waDir = join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps')
-      mkdirSync(waDir, { recursive: true })
-      writeFileSync(join(waDir, 'pi.cmd'), piCmdContent)
-      log('pi.cmd → WindowsApps ✓ (immediate PATH coverage)')
+      const npmDir = join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'npm')
+      mkdirSync(npmDir, { recursive: true })
+      writeFileSync(join(npmDir, 'pi.cmd'), piCmdContent)
+      log('pi.cmd → %%APPDATA%%/npm ✓ (immediate PATH coverage)')
     } catch (err: any) {
-      log(`WindowsApps write failed (non-fatal): ${err?.message || err}`)
+      log(`npm dir write failed (non-fatal): ${err?.message || err}`)
     }
 
     // 副本 3: appDir（与 Guiying.exe 同目录）
@@ -147,13 +147,22 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
 }
 
 function ensurePiCommandAvailable(userDir: string, log: (msg: string) => void): void {
-  // 检查 pi 是否可通过 PATH 访问
-  try {
-    execSync(process.platform === 'win32' ? 'where pi' : 'which pi', { stdio: 'ignore' })
-    return  // pi 已可用
-  } catch {}
+  // 检查 pi 是否通过任意方式可达
+  const homePath = process.env.USERPROFILE || process.env.HOME || require('node:os').homedir()
+  const candidates = process.platform === 'win32'
+    ? [
+        join(homePath, 'pi.cmd'),
+        join(process.env.APPDATA || '', 'npm', 'pi.cmd'),
+        join(process.execPath, '..', 'pi.cmd')
+      ]
+    : ['/usr/local/bin/pi', join(homePath, '.local', 'bin', 'pi')]
 
-  log('pi not on PATH — re-registering...')
+  const { existsSync: es } = require('node:fs')
+  if (candidates.some((p) => es(p))) {
+    return  // pi 文件已存在
+  }
+
+  log('pi not found — re-registering...')
   registerPiCommand(userDir, log)
 }
 
