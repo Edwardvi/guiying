@@ -17,7 +17,7 @@
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -146,6 +146,17 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
   }
 }
 
+function ensurePiCommandAvailable(userDir: string, log: (msg: string) => void): void {
+  // 检查 pi 是否可通过 PATH 访问
+  try {
+    execSync(process.platform === 'win32' ? 'where pi' : 'which pi', { stdio: 'ignore' })
+    return  // pi 已可用
+  } catch {}
+
+  log('pi not on PATH — re-registering...')
+  registerPiCommand(userDir, log)
+}
+
 function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
   if (!existsSync(authFile)) {
@@ -190,7 +201,9 @@ export async function runPiBootstrap(): Promise<void> {
 
   // ── 已初始化过 ──────────────────────────────────────────
   if (existsSync(markerPath)) {
-    log('Bootstrap already completed, skipping')
+    log('Bootstrap already completed, checking Pi availability...')
+    ensurePiCommandAvailable(userDir, log)
+    checkOpenCodeGoAuth(userDir, log)
     return
   }
 
