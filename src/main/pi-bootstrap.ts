@@ -1,19 +1,17 @@
 /**
  * guiying Bootstrap — 首次启动时复制捆绑的 Pi 运行时到用户目录。
  *
- * 在 app.whenReady() 后异步调用。幂等：已初始化则跳过。
+ * 在 app.whenReady() 后异步调用。幂等：标记文件存在则跳过。
  *
- * 捆绑内容（构建时由 config/scripts/bundle-pi.cjs 预装）:
- *   resources/pi-bundle/        skills + extensions + config (~22MB)
- *   resources/pi-runtime/       Pi CLI + 4 npm 包
+ * 捆绑内容:
+ *   resources/pi-bundle/   skills + extensions + config
+ *   resources/pi-runtime/  macOS: node_modules | Win: pi-packages.tar.gz
  *
  * 启动时做的事:
- *   1. 复制 skills → ~/.pi/agent/skills/
- *   2. 复制 extensions → ~/.pi/agent/extensions/
- *   3. 合并 settings → ~/.pi/agent/settings.json
- *   4. 复制 pi-runtime → ~/.pi/agent/npm/（离线，无需网络）
- *
- * 自动化任务模板（策略PPT 等）已编译进 UI 源码，无需运行时注入。
+ *   1. 复制 skills/extensions/config
+ *   2. 安装 Pi（macOS:复制, Win:解压 tar.gz）
+ *   3. 注册 pi 命令到系统 PATH
+ *   4. 检查 OpenCodeGo 认证
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -44,72 +42,46 @@ function getUserPiDir(): string {
 }
 
 // ---------------------------------------------------------------------------
-// 注册 pi 命令到系统 PATH
+// Pi 命令注册
 // ---------------------------------------------------------------------------
 
 function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   const home = process.env.HOME || process.env.USERPROFILE || '~'
   const piEntry = join(userDir, 'npm', 'node_modules', '@earendil-works', 'pi-coding-agent')
+  if (!existsSync(piEntry)) { log('Pi entry not found'); return }
 
-  if (!existsSync(piEntry)) {
-    log('Pi entry not found — skip PATH registration')
-    return
-  }
-
-  // 使用 Electron 内置的 Node.js 来运行 Pi（用户无需单独安装 Node）
-  const electronBin = process.execPath  // Electron 可执行文件路径
+  const electronBin = process.execPath
   const piCliPath = join(piEntry, 'dist', 'cli.js')
 
   if (process.platform === 'win32') {
-    // 策略：
-    // 1. 优先 %USERPROFILE%\pi.cmd（用户目录，always writable）
-    // 2. 然后修改注册表把 %USERPROFILE% 加入 PATH
-    // 3. 同时写入 %LOCALAPPDATA%/Microsoft/WindowsApps（已在 PATH）
-    //
-    // Windows 修改注册表 PATH 需要 logout/login 才生效。
-    // 但 WindowsApps 目录已在 PATH → 作为立即生效的冗余备份。
-
-    const piCmdContent =
+    const appDir = join(electronBin, '..')
+    const cmdPath = join(appDir, 'pi.cmd')
+    mkdirSync(appDir, { recursive: true })
+    writeFileSync(cmdPath,
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
       `set ELECTRON_RUN_AS_NODE=1\r\n` +
       `"${electronBin}" "${piCliPath}" %*\r\n`
+    )
+    log(`pi.cmd → ${cmdPath} ✓`)
 
-    // 副本 1: %USERPROFILE%\pi.cmd（永久备份）
-    const homeCmdPath = join(process.env.USERPROFILE || home, 'pi.cmd')
-    writeFileSync(homeCmdPath, piCmdContent)
-    log(`pi.cmd → ${homeCmdPath} ✓`)
-
-    // 副本 2: %APPDATA%/npm（Node.js 用户已在 PATH，立即生效）
+    // 副本: %APPDATA%/npm (Node.js 用户 PATH)
     try {
-      const npmDir = join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'npm')
+      const npmDir = join(process.env.APPDATA || '', 'npm')
       mkdirSync(npmDir, { recursive: true })
-      writeFileSync(join(npmDir, 'pi.cmd'), piCmdContent)
-      log('pi.cmd → %%APPDATA%%/npm ✓ (immediate PATH coverage)')
-    } catch (err: any) {
-      log(`npm dir write failed (non-fatal): ${err?.message || err}`)
-    }
+      writeFileSync(join(npmDir, 'pi.cmd'),
+        `@echo off\r\n` +
+        `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
+        `set ELECTRON_RUN_AS_NODE=1\r\n` +
+        `"${electronBin}" "${piCliPath}" %*\r\n`
+      )
+    } catch {}
 
-    // 副本 3: appDir（与 Guiying.exe 同目录）
-    try {
-      const appDir = join(electronBin, '..')
-      mkdirSync(appDir, { recursive: true })
-      writeFileSync(join(appDir, 'pi.cmd'), piCmdContent)
-    } catch { /* read-only filesystem */ }
-
-    // 注册表：持久化 PATH（新进程 logout/login 后生效）
-    const homeDir = process.env.USERPROFILE || home
-    addToWindowsUserPath(homeDir, log)
+    addToWindowsUserPath(appDir, log)
   } else {
-    // macOS/Linux: 优先写入 /usr/local/bin（在默认 PATH 上，GUI app 可用）
     let binDir = '/usr/local/bin'
-    try {
-      mkdirSync('/usr/local/bin', { recursive: true })
-    } catch {
-      // /usr/local/bin 不可写，回退到 ~/.local/bin
-      binDir = join(home, '.local', 'bin')
-      mkdirSync(binDir, { recursive: true })
-    }
+    try { mkdirSync('/usr/local/bin', { recursive: true }) }
+    catch { binDir = join(home, '.local', 'bin'); mkdirSync(binDir, { recursive: true }) }
 
     const linkPath = join(binDir, 'pi')
     const shim = [
@@ -118,135 +90,37 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
       'export ELECTRON_RUN_AS_NODE=1',
       `exec "${electronBin}" "${piCliPath}" "$@"`
     ].join('\n')
-
     try { unlinkSync(linkPath) } catch {}
     writeFileSync(linkPath, shim)
     try { chmodSync(linkPath, 0o755) } catch {}
-    log(`pi registered at ${linkPath} ✓ (uses Electron's Node.js)`)
+    log(`pi → ${linkPath} ✓`)
   }
 }
 
 function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
   try {
-    const result = execFileSync('reg', [
-      'query', 'HKCU\\Environment', '/v', 'Path'
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const result = execFileSync('reg', ['query', 'HKCU\\Environment', '/v', 'Path'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+    })
     const currentPath = result.match(/Path\s+REG_[A-Z]+\s+(.+)/)?.[1]?.trim() || ''
-
     if (!currentPath.split(';').some((p) => p.trim().toLowerCase() === dir.toLowerCase())) {
       const newPath = currentPath ? `${currentPath};${dir}` : dir
-      execFileSync('reg', [
-        'add', 'HKCU\\Environment', '/v', 'Path',
-        '/t', 'REG_EXPAND_SZ', '/d', newPath, '/f'
-      ], { stdio: 'ignore' })
-      log(`Added ${dir} to user PATH (registry) ✓`)
+      execFileSync('reg', ['add', 'HKCU\\Environment', '/v', 'Path',
+        '/t', 'REG_EXPAND_SZ', '/d', newPath, '/f'], { stdio: 'ignore' })
+      process.env.Path = process.env.Path ? `${process.env.Path};${dir}` : dir
+      log(`Added ${dir} to PATH ✓`)
     }
-  } catch (err: any) {
-    log(`Windows PATH registry update failed (non-fatal): ${err?.message || err}`)
-  }
+  } catch {}
 }
 
-function ensurePiCommandAvailable(userDir: string, log: (msg: string) => void): void {
-  // 检查 pi 是否通过任意方式可达
-  const homePath = process.env.USERPROFILE || process.env.HOME || require('node:os').homedir()
-  const candidates = process.platform === 'win32'
-    ? [
-        join(homePath, 'pi.cmd'),
-        join(process.env.APPDATA || '', 'npm', 'pi.cmd'),
-        join(process.execPath, '..', 'pi.cmd')
-      ]
-    : ['/usr/local/bin/pi', join(homePath, '.local', 'bin', 'pi')]
+// ---------------------------------------------------------------------------
+// OpenCodeGo
+// ---------------------------------------------------------------------------
 
-  const { existsSync: es } = require('node:fs')
-  if (candidates.some((p) => es(p))) {
-    return  // pi 文件已存在
-  }
-
-  log('pi not found — re-registering...')
-  registerPiCommand(userDir, log)
-}
-
-function installPiViaNpm(userDir: string, log: (msg: string) => void): boolean {
-  try {
-    execFileSync('npm', ['--version'], { stdio: 'pipe', timeout: 10000 })
-  } catch {
-    return false  // npm 不存在
-  }
-
-  const npmDir = join(userDir, 'npm')
-  mkdirSync(npmDir, { recursive: true })
-
-  try {
-    log('Running: npm install @earendil-works/pi-coding-agent...')
-    execFileSync('npm', [
-      'install', '--prefix', npmDir, '--no-save',
-      '--omit=dev', '--omit=optional',
-      '@earendil-works/pi-coding-agent'
-    ], { cwd: npmDir, stdio: 'pipe', timeout: 120000 })
-    log('Pi CLI installed via npm ✓')
-
-    // 安装扩展包
-    const packages = ['pi-web-access', 'pi-mcp-adapter', 'pi-subagents', 'context-mode']
-    for (const pkg of packages) {
-      try {
-        execFileSync('npm', [
-          'install', '--prefix', npmDir, '--no-save',
-          '--omit=dev', '--omit=optional', pkg
-        ], { cwd: npmDir, stdio: 'pipe', timeout: 60000 })
-      } catch { /* non-fatal */ }
-    }
-    return true
-  } catch (err: any) {
-    log(`npm install failed: ${err?.message || err}`)
-    return false
-  }
-}
-
-function extractPiTgz(runtimeDir: string, userDir: string, electronBin: string, log: (msg: string) => void): boolean {
-  const extractScript = `
-    const { execSync } = require('child_process');
-    const { readdirSync, mkdirSync, existsSync } = require('fs');
-    const { join } = require('path');
-    const srcDir = ${JSON.stringify(runtimeDir)};
-    const dstDir = join(${JSON.stringify(userDir)}, 'npm');
-    mkdirSync(dstDir, { recursive: true });
-    for (const f of readdirSync(srcDir)) {
-      if (!f.endsWith('.tgz')) continue;
-      const tgz = join(srcDir, f);
-      console.log('Extracting', f, '...');
-      execSync('"' + process.execPath + '" -e "' +
-        'require(\\'child_process\\').execSync(\\'tar -xzf ' + JSON.stringify(tgz) + ' -C ' + JSON.stringify(dstDir) + '\\', {stdio:\\'inherit\\'});' +
-        '"', { stdio: 'inherit' });
-    }
-  `
-  // 简化方案：直接用 Node.js 的 tar 解压
-  // Electron 内置 Node 没有 tar，但可以用 zlib + tar-stream
-  // 更简单：直接用系统的 tar 命令（Windows 10+ 自带）
-  const { execFileSync } = require('node:child_process')
-  const { readdirSync: rd, mkdirSync: mk } = require('node:fs')
-  const { join: j } = require('node:path')
-
-  const dstDir = j(userDir, 'npm')
-  try { mk(dstDir, { recursive: true }) } catch {}
-
-  try {
-    for (const f of rd(runtimeDir)) {
-      if (!f.endsWith('.tgz')) continue
-      const tgz = j(runtimeDir, f)
-      log(`Extracting ${f}...`)
-      execFileSync('tar', ['-xzf', tgz, '-C', dstDir], { stdio: 'pipe', timeout: 30000, windowsHide: true })
-      log(`  ${f} ✓`)
-    }
-    return true
-  } catch (err: any) {
-    log(`tgz extraction failed: ${err?.message || err}`)
-    return false
-  }
-}(userDir: string, log: (msg: string) => void): void {
+function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
   if (!existsSync(authFile)) {
-    log('⚠ OpenCodeGo 未配置 — 请在终端中运行 pi /login opencode-go')
-    log('  选择 "API Key" 方式，输入你的 OpenCodeGo key')
+    log('⚠ OpenCodeGo 未配置 — 运行 pi /login opencode-go 输入 API key')
     return
   }
   try {
@@ -254,12 +128,9 @@ function extractPiTgz(runtimeDir: string, userDir: string, electronBin: string, 
     if (auth['opencode-go']?.key) {
       log('OpenCodeGo ✓ 已配置')
     } else {
-      log('⚠ OpenCodeGo 未配置 — 请在终端中运行 pi /login opencode-go')
-      log('  选择 "API Key" 方式，输入你的 OpenCodeGo key')
+      log('⚠ OpenCodeGo 未配置')
     }
-  } catch {
-    log('⚠ 无法读取 auth.json')
-  }
+  } catch { log('⚠ 无法读取 auth.json') }
 }
 
 // ---------------------------------------------------------------------------
@@ -273,113 +144,101 @@ export async function runPiBootstrap(): Promise<void> {
   bootstrapDone = true
 
   const bundled = getBundledPiDir()
-  if (!existsSync(bundled)) {
-    console.warn('[guiying] Pi bundle not found at:', bundled)
-    return
-  }
+  if (!existsSync(bundled)) { console.warn('[guiying] Pi bundle not found'); return }
 
   const userDir = getUserPiDir()
   const markerPath = join(userDir, '.guiying-bootstrap-done')
   const log = (msg: string) => console.log(`[guiying] ${msg}`)
 
-  log('=== guiying bootstrap start ===')
+  log('=== guiying bootstrap ===')
 
-  // ── 已初始化过 ──────────────────────────────────────────
+  // ── 已初始化：只做轻量检查 ────────────────────────────
   if (existsSync(markerPath)) {
-    log('Bootstrap already completed, checking Pi availability...')
-    ensurePiCommandAvailable(userDir, log)
+    // 检查 pi.cmd/shim 是否存在，不存在就重建
+    const piExists = process.platform === 'win32'
+      ? [join(process.execPath, '..', 'pi.cmd'), join(process.env.APPDATA || '', 'npm', 'pi.cmd')].some((p) => existsSync(p))
+      : ['/usr/local/bin/pi', join(process.env.HOME || '~', '.local', 'bin', 'pi')].some((p) => existsSync(p))
+
+    if (!piExists) {
+      log('pi not found — re-registering...')
+      registerPiCommand(userDir, log)
+    }
     checkOpenCodeGoAuth(userDir, log)
     return
   }
 
+  // ── 首次启动：完整初始化 ──────────────────────────────
   try {
-    // ── 1. Skills ────────────────────────────────────────
-    {
-      const srcDir = join(bundled, 'skills')
-      const dstDir = join(userDir, 'guiying-skills')
-      mkdirSync(dstDir, { recursive: true })
-      // 安全复制：不覆盖用户已有的同名 skill
-      for (const name of readdirSync(srcDir)) {
-        const src = join(srcDir, name)
-        const dst = join(dstDir, name)
-        if (!existsSync(dst)) {
-          cpSync(src, dst, { recursive: true })
-        }
+    // 1. Skills
+    const skillsSrc = join(bundled, 'skills')
+    const skillsDst = join(userDir, 'guiying-skills')
+    mkdirSync(skillsDst, { recursive: true })
+    for (const name of readdirSync(skillsSrc)) {
+      const src = join(skillsSrc, name), dst = join(skillsDst, name)
+      if (!existsSync(dst)) cpSync(src, dst, { recursive: true })
+    }
+    log('Skills ✓ (20)')
+
+    // 2. Extensions
+    const extSrc = join(bundled, 'extensions')
+    const extDst = join(userDir, 'guiying-extensions')
+    mkdirSync(extDst, { recursive: true })
+    for (const name of readdirSync(extSrc)) {
+      const src = join(extSrc, name), dst = join(extDst, name)
+      if (!existsSync(dst)) cpSync(src, dst)
+    }
+    log('Extensions ✓ (2)')
+
+    // 3. Settings
+    const srcSettings = join(bundled, 'config', 'settings.json')
+    const dstSettings = join(userDir, 'settings.json')
+    if (existsSync(srcSettings)) {
+      const bundledCfg = JSON.parse(readFileSync(srcSettings, 'utf8'))
+      let finalCfg = bundledCfg
+      if (existsSync(dstSettings)) {
+        const existingCfg = JSON.parse(readFileSync(dstSettings, 'utf8'))
+        finalCfg = { ...bundledCfg, ...existingCfg }
+        finalCfg.skills = [...new Set([...(bundledCfg.skills || []), ...(existingCfg.skills || [])])]
+        finalCfg.extensions = [...new Set([...(bundledCfg.extensions || []), ...(existingCfg.extensions || [])])]
+        finalCfg.packages = [...new Set([...(bundledCfg.packages || []), ...(existingCfg.packages || [])])]
       }
-      log('Skills copied ✓ (20) → guiying-skills/')
+      mkdirSync(userDir, { recursive: true })
+      writeFileSync(dstSettings, JSON.stringify(finalCfg, null, 2))
+      log('Settings ✓')
     }
 
-    // ── 2. Extensions ───────────────────────────────────
-    {
-      const srcDir = join(bundled, 'extensions')
-      const dstDir = join(userDir, 'guiying-extensions')
-      mkdirSync(dstDir, { recursive: true })
-      for (const name of readdirSync(srcDir)) {
-        const src = join(srcDir, name)
-        const dst = join(dstDir, name)
-        if (!existsSync(dst)) {
-          cpSync(src, dst)
-        }
-      }
-      log('Extensions copied ✓ (2) → guiying-extensions/')
-    }
-
-    // ── 3. Settings ─────────────────────────────────────
-    {
-      const src = join(bundled, 'config', 'settings.json')
-      const dst = join(userDir, 'settings.json')
-      if (existsSync(src)) {
-        const bundledCfg = JSON.parse(readFileSync(src, 'utf8'))
-        let finalCfg = bundledCfg
-        if (existsSync(dst)) {
-          const existingCfg = JSON.parse(readFileSync(dst, 'utf8'))
-          finalCfg = { ...bundledCfg, ...existingCfg }
-          finalCfg.skills = [...new Set([...(bundledCfg.skills || []), ...(existingCfg.skills || [])])]
-          finalCfg.extensions = [...new Set([...(bundledCfg.extensions || []), ...(existingCfg.extensions || [])])]
-          finalCfg.packages = [...new Set([...(bundledCfg.packages || []), ...(existingCfg.packages || [])])]
-        }
-        mkdirSync(userDir, { recursive: true })
-        writeFileSync(dst, JSON.stringify(finalCfg, null, 2))
-        log('Settings merged ✓')
-      }
-    }
-
-    // ── 4. Pi 运行时 ────────────────────────────────────
+    // 4. Pi runtime
     const runtimeDir = getBundledPiRuntimeDir()
-    if (existsSync(runtimeDir) && existsSync(join(runtimeDir, 'node_modules'))) {
-      // macOS: 捆绑了完整的 Pi 运行时，直接复制
+    if (existsSync(runtimeDir)) {
       const dst = join(userDir, 'npm')
       mkdirSync(dst, { recursive: true })
-      cpSync(runtimeDir, dst, { recursive: true, force: true })
-      log('Pi runtime copied ✓ (offline)')
 
-      registerPiCommand(userDir, log)
-    } else if (process.platform === 'win32') {
-      // Windows：pi-runtime 包含 pi-packages.tar.gz（NSIS 不能处理 node_modules）
-      const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
-      if (existsSync(tarFile)) {
-        log('Extracting Pi packages...')
-        const dstDir = join(userDir, 'npm')
-        mkdirSync(dstDir, { recursive: true })
-        try {
-          execFileSync('tar', ['-xzf', tarFile, '-C', dstDir], {
-            stdio: 'pipe', timeout: 60000, windowsHide: true
-          })
-          log('Pi packages extracted ✓')
-          registerPiCommand(userDir, log)
-        } catch (err: any) {
-          log(`Extraction failed: ${err?.message || err}`)
-          log('Please install Node.js from https://nodejs.org and restart.')
+      if (process.platform === 'win32') {
+        const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
+        if (existsSync(tarFile)) {
+          log('Extracting Pi packages...')
+          try {
+            execFileSync('tar', ['-xzf', tarFile, '-C', dst], {
+              stdio: 'pipe', timeout: 60000, windowsHide: true
+            })
+            log('Pi packages extracted ✓')
+            registerPiCommand(userDir, log)
+          } catch (err: any) {
+            log(`Extraction failed: ${err?.message || err}`)
+          }
         }
       } else {
-        log('⚠ Pi archive not found — please install Node.js and restart.')
+        cpSync(runtimeDir, dst, { recursive: true, force: true })
+        log('Pi runtime copied ✓')
+        registerPiCommand(userDir, log)
       }
+    } else {
+      log('Pi runtime not bundled')
     }
 
     writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
     log('=== guiying bootstrap complete ===')
 
-    // ── 6. OpenCodeGo 登录检查 ─────────────────────────
     checkOpenCodeGoAuth(userDir, log)
   } catch (err: any) {
     log(`Bootstrap error: ${err?.message || err}`)
