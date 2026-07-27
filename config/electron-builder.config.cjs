@@ -242,6 +242,8 @@ module.exports = {
     shortcutName: '${productName}',
     uninstallDisplayName: '${productName}',
     createDesktopShortcut: 'always',
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
     // Why: on a real uninstall, stop and remove the relocated terminal daemon
     // (which lives outside the install dir under LOCALAPPDATA by design). Guarded
     // by ${isUpdated} inside so it never runs during an update's uninstallOldVersion.
