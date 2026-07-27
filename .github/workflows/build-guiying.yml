@@ -79,9 +79,9 @@ jobs:
           rm -rf "$BUNDLE"
           mkdir -p "$BUNDLE"
           cd "$BUNDLE"
-          npm init -y --silent
-          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --silent
-          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --silent
+          npm init -y
+          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
+          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
           echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
 
       # macOS build without signing (local ad-hoc)
@@ -157,17 +157,14 @@ jobs:
 
       # Bundle Pi runtime — install Pi CLI + npm packages into app resources
       - name: Bundle Pi runtime
-        shell: bash
         run: |
-          set -e
-          BUNDLE="resources/pi-runtime"
-          rm -rf "$BUNDLE"
-          mkdir -p "$BUNDLE"
-          cd "$BUNDLE"
-          npm init -y --silent
-          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --silent
-          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --silent
-          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
+          if exist "resources\pi-runtime" rmdir /s /q "resources\pi-runtime"
+          mkdir "resources\pi-runtime"
+          cd "resources\pi-runtime"
+          call npm init -y
+          call npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
+          call npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
+          dir node_modules
 
       # Windows: skip signing
       - name: Package Windows (unsigned)
