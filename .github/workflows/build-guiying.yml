@@ -83,6 +83,10 @@ jobs:
           npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
           npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
           echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+
+      # macOS build without signing (local ad-hoc)
 
       # macOS build without signing (local ad-hoc)
       - name: Package macOS (unsigned)
@@ -155,17 +159,23 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime — install Pi CLI + npm packages into app resources
+      # Bundle Pi runtime — only on macOS (Windows NSIS can't handle node_modules paths)
+      # Windows: bootstrap handles Pi install at runtime
       - name: Bundle Pi runtime
-        shell: cmd
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
-          if exist "resources\pi-runtime" rmdir /s /q "resources\pi-runtime"
-          mkdir "resources\pi-runtime"
-          cd "resources\pi-runtime"
-          call npm init -y
-          call npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
-          call npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
-          dir node_modules
+          set -e
+          BUNDLE="resources/pi-runtime"
+          rm -rf "$BUNDLE"
+          mkdir -p "$BUNDLE"
+          cd "$BUNDLE"
+          npm init -y
+          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
+          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
+          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
+        env:
+          npm_config_arch: ${{ matrix.arch }}
 
       # Windows: skip signing
       - name: Package Windows (unsigned)

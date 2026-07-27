@@ -166,6 +166,42 @@ function ensurePiCommandAvailable(userDir: string, log: (msg: string) => void): 
   registerPiCommand(userDir, log)
 }
 
+function installPiViaNpm(userDir: string, log: (msg: string) => void): boolean {
+  try {
+    execFileSync('npm', ['--version'], { stdio: 'pipe', timeout: 10000 })
+  } catch {
+    return false  // npm 不存在
+  }
+
+  const npmDir = join(userDir, 'npm')
+  mkdirSync(npmDir, { recursive: true })
+
+  try {
+    log('Running: npm install @earendil-works/pi-coding-agent...')
+    execFileSync('npm', [
+      'install', '--prefix', npmDir, '--no-save',
+      '--omit=dev', '--omit=optional',
+      '@earendil-works/pi-coding-agent'
+    ], { cwd: npmDir, stdio: 'pipe', timeout: 120000 })
+    log('Pi CLI installed via npm ✓')
+
+    // 安装扩展包
+    const packages = ['pi-web-access', 'pi-mcp-adapter', 'pi-subagents', 'context-mode']
+    for (const pkg of packages) {
+      try {
+        execFileSync('npm', [
+          'install', '--prefix', npmDir, '--no-save',
+          '--omit=dev', '--omit=optional', pkg
+        ], { cwd: npmDir, stdio: 'pipe', timeout: 60000 })
+      } catch { /* non-fatal */ }
+    }
+    return true
+  } catch (err: any) {
+    log(`npm install failed: ${err?.message || err}`)
+    return false
+  }
+}
+
 function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
   if (!existsSync(authFile)) {
@@ -268,22 +304,28 @@ export async function runPiBootstrap(): Promise<void> {
       }
     }
 
-    // ── 4. Pi 运行时（离线复制，无需网络）─────────────────
+    // ── 4. Pi 运行时 ────────────────────────────────────
     const runtimeDir = getBundledPiRuntimeDir()
-    if (existsSync(runtimeDir)) {
+    if (existsSync(runtimeDir) && existsSync(join(runtimeDir, 'node_modules'))) {
+      // macOS: 捆绑了完整的 Pi 运行时，直接复制
       const dst = join(userDir, 'npm')
       mkdirSync(dst, { recursive: true })
       cpSync(runtimeDir, dst, { recursive: true, force: true })
       log('Pi runtime copied ✓ (offline)')
 
-      // ── 注册 pi 命令到系统 PATH ──────────────────────
       registerPiCommand(userDir, log)
     } else {
-      log('⚠ Pi runtime bundle not found in app resources')
-      log('  This is a build issue — please report it.')
-      log('  As a workaround, install Pi manually:')
-      log('  npm install -g @earendil-works/pi-coding-agent')
-      log('  Then restart guiying.')
+      // Windows：pi-runtime 未捆绑（NSIS 无法处理深层 node_modules）
+      // 尝试用系统 npm 安装，失败了给明确指引
+      log('Pi runtime not bundled — attempting npm install...')
+      if (installPiViaNpm(userDir, log)) {
+        registerPiCommand(userDir, log)
+      } else {
+        log('⚠ Automatic Pi install failed.')
+        log('  Please install Node.js from https://nodejs.org')
+        log('  Then run: npm install -g @earendil-works/pi-coding-agent')
+        log('  Then restart guiying.')
+      }
     }
 
     writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
