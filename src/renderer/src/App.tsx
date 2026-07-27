@@ -709,10 +709,12 @@ function App(): React.JSX.Element {
 
   // ── guiying: bootstrap 进度日志 ─────────────────────
   useEffect(() => {
-    const unsub = window.api.guiying.onBootstrapStatus((msg) => {
-      setGuiyingBootstrapStatus((prev) => prev ? `${prev}\n${msg}` : msg)
+    let cancelled = false
+    window.api.guiying.getBufferedStatus().then((msgs) => {
+      if (cancelled || msgs.length === 0) return
+      setGuiyingBootstrapStatus(msgs.join('\n'))
     })
-    return unsub
+    return () => { cancelled = true }
   }, [])
   const onboardingSettingsDetourActive =
     onboardingSettingsDetour && activeView === 'settings' && shouldRenderOnboarding

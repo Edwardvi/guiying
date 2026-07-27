@@ -5,6 +5,7 @@ import { ipcMain } from 'electron'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { getBufferedStatus } from './pi-bootstrap'
 
 function getUserPiDir(): string {
   const home = process.env.HOME || process.env.USERPROFILE || '~'
@@ -25,6 +26,8 @@ function getPiShimPath(): string | null {
 }
 
 export function registerGuiyingIpc(): void {
+  ipcMain.handle('guiying:getBufferedStatus', async () => getBufferedStatus())
+
   // ── 保存 OpenCodeGo API Key ──────────────────────────────
   ipcMain.handle('guiying:saveOpenCodeKey', async (_event, key: string) => {
     if (!key || typeof key !== 'string' || !key.trim()) {

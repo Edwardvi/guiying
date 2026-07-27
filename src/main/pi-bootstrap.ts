@@ -178,12 +178,28 @@ function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void 
 // 进度通知
 // ---------------------------------------------------------------------------
 
+const statusBuffer: string[] = []
+let statusSubscriber: ((msg: string) => void) | null = null
+
 function notify(msg: string): void {
+  statusBuffer.push(msg)
   try {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send('guiying:bootstrap-status', msg)
     }
   } catch {}
+  // 也写到日志文件，即使 UI 没准备好也能事后查看
+  try {
+    const { writeFileSync: wfs, appendFileSync: afs } = require('node:fs')
+    const statusFile = join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent', '.guiying-status.log')
+    const { mkdirSync: mks } = require('node:fs')
+    mks(join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent'), { recursive: true })
+    afs(statusFile, `${new Date().toISOString()} ${msg}\n`)
+  } catch {}
+}
+
+export function getBufferedStatus(): string[] {
+  return [...statusBuffer]
 }
 
 // ---------------------------------------------------------------------------
