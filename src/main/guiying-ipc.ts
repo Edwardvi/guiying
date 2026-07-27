@@ -13,9 +13,12 @@ function getUserPiDir(): string {
 
 function getPiShimPath(): string | null {
   if (process.platform === 'win32') {
-    // %LOCALAPPDATA%/Microsoft/WindowsApps/pi.cmd（已在 PATH 上）
-    const p = join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'pi.cmd')
-    return existsSync(p) ? p : null
+    // 三层位置：WindowsApps（PATH优先）→ %USERPROFILE%\pi.cmd → appDir
+    const candidates = [
+      join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'pi.cmd'),
+      join(process.env.USERPROFILE || '', 'pi.cmd')
+    ]
+    return candidates.find((p) => existsSync(p)) ?? null
   }
   const paths = ['/usr/local/bin/pi', join(process.env.HOME || '~', '.local', 'bin', 'pi')]
   return paths.find((p) => existsSync(p)) ?? null

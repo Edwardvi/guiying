@@ -17,6 +17,7 @@
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -60,30 +61,45 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   const piCliPath = join(piEntry, 'dist', 'cli.js')
 
   if (process.platform === 'win32') {
-    // 写入 %LOCALAPPDATA%/Microsoft/WindowsApps（已在默认 PATH 上，无需修改注册表）
-    const winPathDir = join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'Microsoft', 'WindowsApps')
-    mkdirSync(winPathDir, { recursive: true })
-    const cmdPath = join(winPathDir, 'pi.cmd')
-    writeFileSync(cmdPath,
+    // 策略：
+    // 1. 优先 %USERPROFILE%\pi.cmd（用户目录，always writable）
+    // 2. 然后修改注册表把 %USERPROFILE% 加入 PATH
+    // 3. 同时写入 %LOCALAPPDATA%/Microsoft/WindowsApps（已在 PATH）
+    //
+    // Windows 修改注册表 PATH 需要 logout/login 才生效。
+    // 但 WindowsApps 目录已在 PATH → 作为立即生效的冗余备份。
+
+    const piCmdContent =
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
       `set ELECTRON_RUN_AS_NODE=1\r\n` +
       `"${electronBin}" "${piCliPath}" %*\r\n`
-    )
-    log(`pi.cmd registered at ${cmdPath} ✓`)
 
-    // 也写入 appDir 作为备份（方便后续通过绝对路径引用）
-    const appDir = join(electronBin, '..')
-    const appCmdPath = join(appDir, 'pi.cmd')
+    // 副本 1: %USERPROFILE%\pi.cmd（永久备份）
+    const homeCmdPath = join(process.env.USERPROFILE || home, 'pi.cmd')
+    writeFileSync(homeCmdPath, piCmdContent)
+    log(`pi.cmd → ${homeCmdPath} ✓`)
+
+    // 副本 2: WindowsApps（已在 PATH，立即生效）
     try {
+      const waDir = join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps')
+      mkdirSync(waDir, { recursive: true })
+      writeFileSync(join(waDir, 'pi.cmd'), piCmdContent)
+      log('pi.cmd → WindowsApps ✓ (immediate PATH coverage)')
+    } catch (err: any) {
+      log(`WindowsApps write failed (non-fatal): ${err?.message || err}`)
+    }
+
+    // 副本 3: appDir（与 Guiying.exe 同目录）
+    try {
+      const appDir = join(electronBin, '..')
       mkdirSync(appDir, { recursive: true })
-      writeFileSync(appCmdPath,
-        `@echo off\r\n` +
-        `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
-        `set ELECTRON_RUN_AS_NODE=1\r\n` +
-        `"${electronBin}" "${piCliPath}" %*\r\n`
-      )
-    } catch { /* app dir might be read-only */ }
+      writeFileSync(join(appDir, 'pi.cmd'), piCmdContent)
+    } catch { /* read-only filesystem */ }
+
+    // 注册表：持久化 PATH（新进程 logout/login 后生效）
+    const homeDir = process.env.USERPROFILE || home
+    addToWindowsUserPath(homeDir, log)
   } else {
     // macOS/Linux: 优先写入 /usr/local/bin（在默认 PATH 上，GUI app 可用）
     let binDir = '/usr/local/bin'
@@ -107,6 +123,26 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     writeFileSync(linkPath, shim)
     try { chmodSync(linkPath, 0o755) } catch {}
     log(`pi registered at ${linkPath} ✓ (uses Electron's Node.js)`)
+  }
+}
+
+function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
+  try {
+    const result = execFileSync('reg', [
+      'query', 'HKCU\\Environment', '/v', 'Path'
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const currentPath = result.match(/Path\s+REG_[A-Z]+\s+(.+)/)?.[1]?.trim() || ''
+
+    if (!currentPath.split(';').some((p) => p.trim().toLowerCase() === dir.toLowerCase())) {
+      const newPath = currentPath ? `${currentPath};${dir}` : dir
+      execFileSync('reg', [
+        'add', 'HKCU\\Environment', '/v', 'Path',
+        '/t', 'REG_EXPAND_SZ', '/d', newPath, '/f'
+      ], { stdio: 'ignore' })
+      log(`Added ${dir} to user PATH (registry) ✓`)
+    }
+  } catch (err: any) {
+    log(`Windows PATH registry update failed (non-fatal): ${err?.message || err}`)
   }
 }
 
