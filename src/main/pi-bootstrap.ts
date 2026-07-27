@@ -13,7 +13,7 @@
  *   3. 注册 pi 命令到系统 PATH
  *   4. 检查 OpenCodeGo 认证
  */
-import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync, appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { BrowserWindow } from 'electron'
@@ -183,18 +183,18 @@ let statusSubscriber: ((msg: string) => void) | null = null
 
 function notify(msg: string): void {
   statusBuffer.push(msg)
+  // 写日志文件
+  try {
+    const logDir = join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent')
+    const logFile = join(logDir, '.guiying-status.log')
+    mkdirSync(logDir, { recursive: true })
+    appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`)
+  } catch {}
+  // 发 IPC
   try {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send('guiying:bootstrap-status', msg)
     }
-  } catch {}
-  // 也写到日志文件，即使 UI 没准备好也能事后查看
-  try {
-    const { writeFileSync: wfs, appendFileSync: afs } = require('node:fs')
-    const statusFile = join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent', '.guiying-status.log')
-    const { mkdirSync: mks } = require('node:fs')
-    mks(join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent'), { recursive: true })
-    afs(statusFile, `${new Date().toISOString()} ${msg}\n`)
   } catch {}
 }
 
