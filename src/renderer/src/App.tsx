@@ -689,6 +689,7 @@ function App(): React.JSX.Element {
   const [onboardingSettingsDetour, setOnboardingSettingsDetour] = useState(false)
   const [guiyingSetupVisible, setGuiyingSetupVisible] = useState(false)
   const [guiyingSetupChecked, setGuiyingSetupChecked] = useState(false)
+  const [guiyingBootstrapStatus, setGuiyingBootstrapStatus] = useState<string | null>(null)
   const shouldRenderOnboarding = onboarding !== null && shouldShowOnboarding(onboarding)
 
   // ── guiying: 检查 OpenCodeGo 是否已配置 ──────────────
@@ -705,6 +706,14 @@ function App(): React.JSX.Element {
     })
     return () => { cancelled = true }
   }, [guiyingSetupChecked])
+
+  // ── guiying: bootstrap 进度日志 ─────────────────────
+  useEffect(() => {
+    const unsub = window.api.guiying.onBootstrapStatus((msg) => {
+      setGuiyingBootstrapStatus((prev) => prev ? `${prev}\n${msg}` : msg)
+    })
+    return unsub
+  }, [])
   const onboardingSettingsDetourActive =
     onboardingSettingsDetour && activeView === 'settings' && shouldRenderOnboarding
   if (onboardingSettingsDetour && !onboardingSettingsDetourActive) {
@@ -2128,6 +2137,12 @@ function App(): React.JSX.Element {
       }
     >
       <TooltipProvider delayDuration={400}>
+        {/* guiying bootstrap status */}
+        {guiyingBootstrapStatus && (
+          <div className="fixed bottom-4 right-4 z-[9999] max-w-md rounded-lg border border-border bg-card p-3 text-xs font-mono shadow-lg opacity-90">
+            <pre className="whitespace-pre-wrap text-muted-foreground">{guiyingBootstrapStatus}</pre>
+          </div>
+        )}
         <ConfirmationDialogProvider>
           <LinkRoutingPreferenceDialogProvider>
             <WorkspacePortScanner enabled={workspaceSessionReady} />

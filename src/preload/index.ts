@@ -4361,6 +4361,11 @@ const api = {
       ipcRenderer.invoke('guiying:checkOpenCodeAuth'),
     saveOpenCodeKey: (key: string): Promise<{ success: boolean; message: string }> =>
       ipcRenderer.invoke('guiying:saveOpenCodeKey', key),
+    onBootstrapStatus: (callback: (msg: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, msg: string) => callback(msg)
+      ipcRenderer.on('guiying:bootstrap-status', listener)
+      return () => ipcRenderer.removeListener('guiying:bootstrap-status', listener)
+    },
   },
 
   e2e: {

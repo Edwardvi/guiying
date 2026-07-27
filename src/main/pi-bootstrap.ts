@@ -16,6 +16,7 @@
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { BrowserWindow } from 'electron'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -174,6 +175,18 @@ function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void 
 }
 
 // ---------------------------------------------------------------------------
+// 进度通知
+// ---------------------------------------------------------------------------
+
+function notify(msg: string): void {
+  try {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('guiying:bootstrap-status', msg)
+    }
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
 // 主入口
 // ---------------------------------------------------------------------------
 
@@ -188,9 +201,12 @@ export async function runPiBootstrap(): Promise<void> {
 
   const userDir = getUserPiDir()
   const markerPath = join(userDir, '.guiying-bootstrap-done')
-  const log = (msg: string) => console.log(`[guiying] ${msg}`)
+  const log = (msg: string) => {
+    console.log(`[guiying] ${msg}`)
+    notify(msg)
+  }
 
-  log('=== guiying bootstrap ===')
+  log('guiying 初始化中...')
 
   // ── 已初始化：只做轻量检查 ────────────────────────────
   if (existsSync(markerPath)) {
@@ -198,16 +214,17 @@ export async function runPiBootstrap(): Promise<void> {
 
     // npm/ 目录不存在或为空 → 重新解压（覆盖安装时 pi-runtime 可能未就绪）
     if (!existsSync(piEntry)) {
-      log('Pi runtime not installed — extracting...')
+      log('Pi 运行时未安装，正在解压...')
       installPiRuntime(userDir, log)
     }
 
     const piCmdExists = checkPiCmdExists()
     if (!piCmdExists) {
-      log('pi.cmd not found — re-registering...')
+      log('pi 命令未找到，正在重新注册...')
       registerPiCommand(userDir, log)
     }
     checkOpenCodeGoAuth(userDir, log)
+    log('guiying 就绪 ✓')
     return
   }
 
