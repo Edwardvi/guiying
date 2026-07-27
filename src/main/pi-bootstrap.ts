@@ -125,9 +125,37 @@ function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
   } catch {}
 }
 
-// ---------------------------------------------------------------------------
-// OpenCodeGo
-// ---------------------------------------------------------------------------
+function checkPiCmdExists(): boolean {
+  if (process.platform === 'win32') {
+    return [join(process.execPath, '..', 'pi.cmd'),
+            join(process.env.APPDATA || '', 'npm', 'pi.cmd')].some((p) => existsSync(p))
+  }
+  return ['/usr/local/bin/pi',
+          join(process.env.HOME || '~', '.local', 'bin', 'pi')].some((p) => existsSync(p))
+}
+
+function installPiRuntime(userDir: string, log: (msg: string) => void): void {
+  const runtimeDir = getBundledPiRuntimeDir()
+  if (!existsSync(runtimeDir)) { log('Pi runtime not bundled'); return }
+
+  const dst = join(userDir, 'npm')
+  mkdirSync(dst, { recursive: true })
+
+  if (process.platform === 'win32') {
+    const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
+    if (!existsSync(tarFile)) { log('pi-packages.tar.gz not found'); return }
+    log('Extracting Pi packages...')
+    try {
+      execFileSync('tar', ['-xzf', tarFile, '-C', dst], { stdio: 'pipe', timeout: 60000, windowsHide: true })
+      log('Pi packages extracted ✓')
+    } catch (err: any) {
+      log(`Extraction failed: ${err?.message || err}`)
+    }
+  } else {
+    cpSync(runtimeDir, dst, { recursive: true, force: true })
+    log('Pi runtime copied ✓')
+  }
+}
 
 function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
@@ -166,13 +194,17 @@ export async function runPiBootstrap(): Promise<void> {
 
   // ── 已初始化：只做轻量检查 ────────────────────────────
   if (existsSync(markerPath)) {
-    // 检查 pi.cmd/shim 是否存在，不存在就重建
-    const piExists = process.platform === 'win32'
-      ? [join(process.execPath, '..', 'pi.cmd'), join(process.env.APPDATA || '', 'npm', 'pi.cmd')].some((p) => existsSync(p))
-      : ['/usr/local/bin/pi', join(process.env.HOME || '~', '.local', 'bin', 'pi')].some((p) => existsSync(p))
+    const piEntry = join(userDir, 'npm', 'node_modules', '@earendil-works', 'pi-coding-agent')
 
-    if (!piExists) {
-      log('pi not found — re-registering...')
+    // npm/ 目录不存在或为空 → 重新解压（覆盖安装时 pi-runtime 可能未就绪）
+    if (!existsSync(piEntry)) {
+      log('Pi runtime not installed — extracting...')
+      installPiRuntime(userDir, log)
+    }
+
+    const piCmdExists = checkPiCmdExists()
+    if (!piCmdExists) {
+      log('pi.cmd not found — re-registering...')
       registerPiCommand(userDir, log)
     }
     checkOpenCodeGoAuth(userDir, log)
@@ -220,32 +252,12 @@ export async function runPiBootstrap(): Promise<void> {
     }
 
     // 4. Pi runtime
-    const runtimeDir = getBundledPiRuntimeDir()
-    if (existsSync(runtimeDir)) {
-      const dst = join(userDir, 'npm')
-      mkdirSync(dst, { recursive: true })
+    installPiRuntime(userDir, log)
 
-      if (process.platform === 'win32') {
-        const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
-        if (existsSync(tarFile)) {
-          log('Extracting Pi packages...')
-          try {
-            execFileSync('tar', ['-xzf', tarFile, '-C', dst], {
-              stdio: 'pipe', timeout: 60000, windowsHide: true
-            })
-            log('Pi packages extracted ✓')
-            registerPiCommand(userDir, log)
-          } catch (err: any) {
-            log(`Extraction failed: ${err?.message || err}`)
-          }
-        }
-      } else {
-        cpSync(runtimeDir, dst, { recursive: true, force: true })
-        log('Pi runtime copied ✓')
-        registerPiCommand(userDir, log)
-      }
-    } else {
-      log('Pi runtime not bundled')
+    // 5. Register pi command
+    const piEntry = join(userDir, 'npm', 'node_modules', '@earendil-works', 'pi-coding-agent')
+    if (existsSync(piEntry)) {
+      registerPiCommand(userDir, log)
     }
 
     writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
