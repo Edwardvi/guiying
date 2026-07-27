@@ -49,7 +49,7 @@ const baseEnv = { ...process.env, npm_config_cache: join(ROOT, 'node_modules', '
 function install(pkg, timeoutMs = 120000) {
   console.log(`[bundle-pi] Installing ${pkg}...`)
   const args = pm.isPnpm
-    ? ['add', '--dir', BUNDLE_DIR, '--no-save', pkg]
+    ? ['--dir', BUNDLE_DIR, 'add', '--no-save', pkg]
     : ['install', '--prefix', BUNDLE_DIR, '--no-save', '--omit=dev', '--omit=optional', pkg]
   try {
     execFileSync(pm.bin, args, {
