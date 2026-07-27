@@ -2,7 +2,8 @@
 /**
  * bundle-pi.cjs — 在 CI 构建时将 Pi CLI 和其 npm 包捆绑到 app 资源中。
  *
- * 非致命：如果 npm 不可用或网络不通，退出 0。
+ * 优先使用 pnpm（CI 已安装），fallback 到 npm。
+ * Pi CLI 安装失败时 exit 1（fatal）。
  */
 'use strict'
 
@@ -14,26 +15,28 @@ const ROOT = join(__dirname, '..', '..')
 const BUNDLE_DIR = join(ROOT, 'resources', 'pi-runtime')
 const isWindows = process.platform === 'win32'
 
-console.log('[bundle-pi] cwd:', process.cwd())
 console.log('[bundle-pi] ROOT:', ROOT)
 
-// ── npm check ─────────────────────────────────────────────────
-const npmCandidates = isWindows ? ['npm.cmd', 'npm'] : ['npm']
-let npmBin = null
-for (const cmd of npmCandidates) {
-  try {
-    execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 10000 })
-    npmBin = cmd
-    break
-  } catch {}
+// ── 找包管理器（pnpm > npm）──────────────────────────────────
+function findPM() {
+  const candidates = isWindows
+    ? ['pnpm.cmd', 'npm.cmd', 'pnpm', 'npm']
+    : ['pnpm', 'npm']
+  for (const cmd of candidates) {
+    try {
+      execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 10000 })
+      return { bin: cmd, isPnpm: cmd.startsWith('pnpm') }
+    } catch {}
+  }
+  return null
 }
 
-if (!npmBin) {
-  console.log('[bundle-pi] npm not found — skipping (bootstrap handles at runtime)')
+const pm = findPM()
+if (!pm) {
+  console.log('[bundle-pi] No package manager — skipping')
   process.exit(0)
 }
-
-console.log('[bundle-pi] npm:', npmBin)
+console.log(`[bundle-pi] Using: ${pm.bin}`)
 
 // ── 清理 ─────────────────────────────────────────────────────
 if (existsSync(BUNDLE_DIR)) {
@@ -41,18 +44,16 @@ if (existsSync(BUNDLE_DIR)) {
 }
 mkdirSync(BUNDLE_DIR, { recursive: true })
 
-const baseEnv = { ...process.env }
-const install = (pkg, timeoutMs = 120000) => {
+const baseEnv = { ...process.env, npm_config_cache: join(ROOT, 'node_modules', '.cache', 'npm') }
+
+function install(pkg, timeoutMs = 120000) {
   console.log(`[bundle-pi] Installing ${pkg}...`)
+  const args = pm.isPnpm
+    ? ['add', '--dir', BUNDLE_DIR, '--no-save', pkg]
+    : ['install', '--prefix', BUNDLE_DIR, '--no-save', '--omit=dev', '--omit=optional', pkg]
   try {
-    execFileSync(npmBin, [
-      'install', '--prefix', BUNDLE_DIR, '--no-save',
-      '--omit=dev', '--omit=optional', pkg
-    ], {
-      cwd: ROOT,
-      stdio: 'inherit',
-      timeout: timeoutMs,
-      env: { ...baseEnv, npm_config_cache: join(ROOT, 'node_modules', '.cache', 'npm') }
+    execFileSync(pm.bin, args, {
+      cwd: ROOT, stdio: 'inherit', timeout: timeoutMs, env: baseEnv
     })
     console.log(`[bundle-pi] ${pkg} ✓`)
     return true
@@ -62,13 +63,13 @@ const install = (pkg, timeoutMs = 120000) => {
   }
 }
 
-// ── Pi CLI ────────────────────────────────────────────────────
+// ── Pi CLI（fatal）───────────────────────────────────────────
 if (!install('@earendil-works/pi-coding-agent')) {
-  console.error('[bundle-pi] FATAL: Pi CLI install failed — build cannot continue')
+  console.error('[bundle-pi] FATAL: Pi CLI not bundled — build fails')
   process.exit(1)
 }
 
-// ── npm packages ──────────────────────────────────────────────
+// ── npm packages（non-fatal）─────────────────────────────────
 const packages = ['pi-web-access', 'pi-mcp-adapter', 'pi-subagents', 'context-mode']
 for (const pkg of packages) {
   install(pkg, 60000)
