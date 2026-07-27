@@ -157,6 +157,7 @@ jobs:
 
       # Bundle Pi runtime — install Pi CLI + npm packages into app resources
       - name: Bundle Pi runtime
+        shell: cmd
         run: |
           if exist "resources\pi-runtime" rmdir /s /q "resources\pi-runtime"
           mkdir "resources\pi-runtime"
