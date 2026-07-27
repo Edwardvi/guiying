@@ -81,7 +81,19 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   } else {
     let binDir = '/usr/local/bin'
     try { mkdirSync('/usr/local/bin', { recursive: true }) }
-    catch { binDir = join(home, '.local', 'bin'); mkdirSync(binDir, { recursive: true }) }
+    catch {
+      binDir = join(home, '.local', 'bin')
+      mkdirSync(binDir, { recursive: true })
+      // 确保 ~/.local/bin 在 PATH（GUI app 环境可能没有）
+      const rcFile = process.env.SHELL?.includes('zsh') ? join(home, '.zshrc') : join(home, '.bashrc')
+      if (existsSync(rcFile)) {
+        const exportLine = `export PATH="${binDir}:$PATH"`
+        const content = readFileSync(rcFile, 'utf8')
+        if (!content.split('\n').some((l: string) => l.trim() === exportLine.trim())) {
+          writeFileSync(rcFile, content.trimEnd() + `\n# guiying — Pi agent PATH\n${exportLine}\n`)
+        }
+      }
+    }
 
     const linkPath = join(binDir, 'pi')
     const shim = [
