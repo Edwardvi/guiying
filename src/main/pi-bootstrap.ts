@@ -235,7 +235,6 @@ export async function runPiBootstrap(): Promise<void> {
   log('guiying 初始化中...')
 
   // ── 已初始化：只做轻量检查 ────────────────────────────
-  try {
   if (existsSync(markerPath)) {
     const piEntry = join(userDir, 'npm', 'node_modules', '@earendil-works', 'pi-coding-agent')
 
