@@ -212,8 +212,18 @@ export async function runPiBootstrap(): Promise<void> {
   if (bootstrapDone) return
   bootstrapDone = true
 
+  // 第一时间写标记——即使后续全崩也能证明被调用了
+  try {
+    const debugDir = join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent')
+    mkdirSync(debugDir, { recursive: true })
+    writeFileSync(join(debugDir, '.guiying-debug.log'), `bootstrap called at ${new Date().toISOString()}\n`)
+  } catch {}
+
   const bundled = getBundledPiDir()
-  if (!existsSync(bundled)) { console.warn('[guiying] Pi bundle not found'); return }
+  if (!existsSync(bundled)) {
+    try { appendFileSync(join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent', '.guiying-debug.log'), `pi-bundle NOT FOUND at ${bundled}\n`) } catch {}
+    return
+  }
 
   const userDir = getUserPiDir()
   const markerPath = join(userDir, '.guiying-bootstrap-done')
@@ -225,6 +235,7 @@ export async function runPiBootstrap(): Promise<void> {
   log('guiying 初始化中...')
 
   // ── 已初始化：只做轻量检查 ────────────────────────────
+  try {
   if (existsSync(markerPath)) {
     const piEntry = join(userDir, 'npm', 'node_modules', '@earendil-works', 'pi-coding-agent')
 
