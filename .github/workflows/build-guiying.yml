@@ -159,8 +159,8 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime — only on macOS (Windows NSIS can't handle node_modules paths)
-      # Windows: bootstrap handles Pi install at runtime
+      # Bundle Pi runtime — package Pi CLI as .tgz for offline install
+      # macOS: full bundle via ditto | Windows: .tgz extracted by Electron's Node
       - name: Bundle Pi runtime
         if: runner.os != 'Windows'
         shell: bash
@@ -176,6 +176,19 @@ jobs:
           echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
         env:
           npm_config_arch: ${{ matrix.arch }}
+
+      - name: Package Pi for Windows
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          if not exist "resources\pi-runtime" mkdir "resources\pi-runtime"
+          cd "resources\pi-runtime"
+          call npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --prefix .
+          call npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --prefix .
+          :: Package into single .tar.gz (Windows 10+ has tar built-in)
+          tar -czf pi-packages.tar.gz node_modules
+          rmdir /s /q node_modules
+          dir
 
       # Windows: skip signing
       - name: Package Windows (unsigned)

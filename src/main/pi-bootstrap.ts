@@ -202,7 +202,47 @@ function installPiViaNpm(userDir: string, log: (msg: string) => void): boolean {
   }
 }
 
-function checkOpenCodeGoAuth(userDir: string, log: (msg: string) => void): void {
+function extractPiTgz(runtimeDir: string, userDir: string, electronBin: string, log: (msg: string) => void): boolean {
+  const extractScript = `
+    const { execSync } = require('child_process');
+    const { readdirSync, mkdirSync, existsSync } = require('fs');
+    const { join } = require('path');
+    const srcDir = ${JSON.stringify(runtimeDir)};
+    const dstDir = join(${JSON.stringify(userDir)}, 'npm');
+    mkdirSync(dstDir, { recursive: true });
+    for (const f of readdirSync(srcDir)) {
+      if (!f.endsWith('.tgz')) continue;
+      const tgz = join(srcDir, f);
+      console.log('Extracting', f, '...');
+      execSync('"' + process.execPath + '" -e "' +
+        'require(\\'child_process\\').execSync(\\'tar -xzf ' + JSON.stringify(tgz) + ' -C ' + JSON.stringify(dstDir) + '\\', {stdio:\\'inherit\\'});' +
+        '"', { stdio: 'inherit' });
+    }
+  `
+  // 简化方案：直接用 Node.js 的 tar 解压
+  // Electron 内置 Node 没有 tar，但可以用 zlib + tar-stream
+  // 更简单：直接用系统的 tar 命令（Windows 10+ 自带）
+  const { execFileSync } = require('node:child_process')
+  const { readdirSync: rd, mkdirSync: mk } = require('node:fs')
+  const { join: j } = require('node:path')
+
+  const dstDir = j(userDir, 'npm')
+  try { mk(dstDir, { recursive: true }) } catch {}
+
+  try {
+    for (const f of rd(runtimeDir)) {
+      if (!f.endsWith('.tgz')) continue
+      const tgz = j(runtimeDir, f)
+      log(`Extracting ${f}...`)
+      execFileSync('tar', ['-xzf', tgz, '-C', dstDir], { stdio: 'pipe', timeout: 30000, windowsHide: true })
+      log(`  ${f} ✓`)
+    }
+    return true
+  } catch (err: any) {
+    log(`tgz extraction failed: ${err?.message || err}`)
+    return false
+  }
+}(userDir: string, log: (msg: string) => void): void {
   const authFile = join(userDir, 'auth.json')
   if (!existsSync(authFile)) {
     log('⚠ OpenCodeGo 未配置 — 请在终端中运行 pi /login opencode-go')
@@ -314,17 +354,25 @@ export async function runPiBootstrap(): Promise<void> {
       log('Pi runtime copied ✓ (offline)')
 
       registerPiCommand(userDir, log)
-    } else {
-      // Windows：pi-runtime 未捆绑（NSIS 无法处理深层 node_modules）
-      // 尝试用系统 npm 安装，失败了给明确指引
-      log('Pi runtime not bundled — attempting npm install...')
-      if (installPiViaNpm(userDir, log)) {
-        registerPiCommand(userDir, log)
+    } else if (process.platform === 'win32') {
+      // Windows：pi-runtime 包含 pi-packages.tar.gz（NSIS 不能处理 node_modules）
+      const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
+      if (existsSync(tarFile)) {
+        log('Extracting Pi packages...')
+        const dstDir = join(userDir, 'npm')
+        mkdirSync(dstDir, { recursive: true })
+        try {
+          execFileSync('tar', ['-xzf', tarFile, '-C', dstDir], {
+            stdio: 'pipe', timeout: 60000, windowsHide: true
+          })
+          log('Pi packages extracted ✓')
+          registerPiCommand(userDir, log)
+        } catch (err: any) {
+          log(`Extraction failed: ${err?.message || err}`)
+          log('Please install Node.js from https://nodejs.org and restart.')
+        }
       } else {
-        log('⚠ Automatic Pi install failed.')
-        log('  Please install Node.js from https://nodejs.org')
-        log('  Then run: npm install -g @earendil-works/pi-coding-agent')
-        log('  Then restart guiying.')
+        log('⚠ Pi archive not found — please install Node.js and restart.')
       }
     }
 
