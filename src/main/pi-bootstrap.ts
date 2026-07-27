@@ -17,7 +17,6 @@
  */
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, chmodSync, unlinkSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
 
 // ---------------------------------------------------------------------------
 // 路径
@@ -61,11 +60,10 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
   const piCliPath = join(piEntry, 'dist', 'cli.js')
 
   if (process.platform === 'win32') {
-    // 写入 guiying 安装目录（NSIS 安装器已将其加入 PATH）
-    // 这样可以立即生效，无需注销重新登录
-    const appDir = join(electronBin, '..')  // 与 Guiying.exe 同目录
-    const cmdPath = join(appDir, 'pi.cmd')
-    mkdirSync(appDir, { recursive: true })
+    // 写入 %LOCALAPPDATA%/Microsoft/WindowsApps（已在默认 PATH 上，无需修改注册表）
+    const winPathDir = join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'Microsoft', 'WindowsApps')
+    mkdirSync(winPathDir, { recursive: true })
+    const cmdPath = join(winPathDir, 'pi.cmd')
     writeFileSync(cmdPath,
       `@echo off\r\n` +
       `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
@@ -74,8 +72,18 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     )
     log(`pi.cmd registered at ${cmdPath} ✓`)
 
-    // 同时写入注册表（新进程 logout/login 后生效）
-    addToWindowsUserPath(appDir, log)
+    // 也写入 appDir 作为备份（方便后续通过绝对路径引用）
+    const appDir = join(electronBin, '..')
+    const appCmdPath = join(appDir, 'pi.cmd')
+    try {
+      mkdirSync(appDir, { recursive: true })
+      writeFileSync(appCmdPath,
+        `@echo off\r\n` +
+        `set PI_CODING_AGENT_DIR=${userDir}\r\n` +
+        `set ELECTRON_RUN_AS_NODE=1\r\n` +
+        `"${electronBin}" "${piCliPath}" %*\r\n`
+      )
+    } catch { /* app dir might be read-only */ }
   } else {
     // macOS/Linux: 优先写入 /usr/local/bin（在默认 PATH 上，GUI app 可用）
     let binDir = '/usr/local/bin'
@@ -85,7 +93,6 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
       // /usr/local/bin 不可写，回退到 ~/.local/bin
       binDir = join(home, '.local', 'bin')
       mkdirSync(binDir, { recursive: true })
-      ensureLocalBinInPath(home, log)
     }
 
     const linkPath = join(binDir, 'pi')
@@ -100,68 +107,6 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
     writeFileSync(linkPath, shim)
     try { chmodSync(linkPath, 0o755) } catch {}
     log(`pi registered at ${linkPath} ✓ (uses Electron's Node.js)`)
-  }
-}
-
-function ensureLocalBinInPath(home: string, log: (msg: string) => void): void {
-  const localBin = join(home, '.local', 'bin')
-  const shellRc = process.env.SHELL?.includes('zsh')
-    ? join(home, '.zshrc')
-    : join(home, '.bashrc')
-
-  if (!existsSync(shellRc)) return
-
-  const content = readFileSync(shellRc, 'utf8')
-  // 精确行匹配，防止重复追加
-  const exportLine = `export PATH="${localBin}:$PATH"`
-  if (content.split('\n').some((line) => line.trim() === exportLine.trim())) {
-    return  // 已存在
-  }
-  writeFileSync(shellRc,
-    content.trimEnd() + `\n# guiying — Pi agent PATH\n${exportLine}\n`
-  )
-  log(`Added ${localBin} to ${shellRc} ✓`)
-}
-
-function addToWindowsUserPath(dir: string, log: (msg: string) => void): void {
-  try {
-    const result = execFileSync('reg', [
-      'query',
-      'HKCU\\Environment',
-      '/v', 'Path'
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-    const currentPath = result.match(/Path\s+REG_[A-Z]+\s+(.+)/)?.[1]?.trim() || ''
-
-    if (!currentPath.split(';').some((p) => p.trim().toLowerCase() === dir.toLowerCase())) {
-      const newPath = currentPath ? `${currentPath};${dir}` : dir
-      execFileSync('reg', [
-        'add',
-        'HKCU\\Environment',
-        '/v', 'Path',
-        '/t', 'REG_EXPAND_SZ',
-        '/d', newPath,
-        '/f'
-      ], { stdio: 'ignore' })
-
-      // 立即对当前进程生效（新开的子进程会继承）
-      process.env.Path = process.env.Path
-        ? `${process.env.Path};${dir}`
-        : dir
-
-      // 广播 WM_SETTINGCHANGE，通知其他运行中的进程刷新环境变量
-      try {
-        execFileSync('powershell', [
-          '-NoProfile', '-NonInteractive', '-Command',
-          'Add-Type -Name Native -Namespace Win32 -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);\'; ' +
-          '$HWND_BROADCAST = 0xffff; $WM_SETTINGCHANGE = 0x001a; $SMTO_ABORTIFHUNG = 0x0002; $null = New-Object UIntPtr; ' +
-          '[Win32.Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, "Environment", $SMTO_ABORTIFHUNG, 5000, [ref]$null)'
-        ], { stdio: 'ignore', timeout: 10000 })
-      } catch { /* best-effort */ }
-
-      log(`Added ${dir} to user PATH ✓`)
-    }
-  } catch (err: any) {
-    log(`Windows PATH update failed (non-fatal): ${err?.message || err}`)
   }
 }
 

@@ -13,9 +13,8 @@ function getUserPiDir(): string {
 
 function getPiShimPath(): string | null {
   if (process.platform === 'win32') {
-    // 与 pi-bootstrap.ts 保持一致：写入应用安装目录（Guiying.exe 同目录）
-    const appDir = process.execPath ? join(process.execPath, '..') : ''
-    const p = join(appDir, 'pi.cmd')
+    // %LOCALAPPDATA%/Microsoft/WindowsApps/pi.cmd（已在 PATH 上）
+    const p = join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'pi.cmd')
     return existsSync(p) ? p : null
   }
   const paths = ['/usr/local/bin/pi', join(process.env.HOME || '~', '.local', 'bin', 'pi')]
