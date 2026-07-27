@@ -64,8 +64,8 @@ const install = (pkg, timeoutMs = 120000) => {
 
 // ── Pi CLI ────────────────────────────────────────────────────
 if (!install('@earendil-works/pi-coding-agent')) {
-  console.log('[bundle-pi] Pi CLI not bundled — bootstrap handles at runtime')
-  process.exit(0)
+  console.error('[bundle-pi] FATAL: Pi CLI install failed — build cannot continue')
+  process.exit(1)
 }
 
 // ── npm packages ──────────────────────────────────────────────

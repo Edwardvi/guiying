@@ -257,7 +257,11 @@ export async function runPiBootstrap(): Promise<void> {
       // ── 注册 pi 命令到系统 PATH ──────────────────────
       registerPiCommand(userDir, log)
     } else {
-      log('Pi runtime bundle not found — user needs npm install -g pi')
+      log('⚠ Pi runtime bundle not found in app resources')
+      log('  This is a build issue — please report it.')
+      log('  As a workaround, install Pi manually:')
+      log('  npm install -g @earendil-works/pi-coding-agent')
+      log('  Then restart guiying.')
     }
 
     writeFileSync(markerPath, JSON.stringify({ installedAt: new Date().toISOString() }, null, 2))
