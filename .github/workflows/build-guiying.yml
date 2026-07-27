@@ -70,12 +70,19 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
+      # Bundle Pi runtime — install Pi CLI + npm packages into app resources
       - name: Bundle Pi runtime
-        run: node config/scripts/bundle-pi.cjs
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-          npm_config_arch: ${{ matrix.arch }}
+        shell: bash
+        run: |
+          set -e
+          BUNDLE="resources/pi-runtime"
+          rm -rf "$BUNDLE"
+          mkdir -p "$BUNDLE"
+          cd "$BUNDLE"
+          npm init -y --silent
+          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --silent
+          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --silent
+          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
 
       # macOS build without signing (local ad-hoc)
       - name: Package macOS (unsigned)
@@ -148,11 +155,19 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime (best-effort — skips gracefully if npm unavailable)
+      # Bundle Pi runtime — install Pi CLI + npm packages into app resources
       - name: Bundle Pi runtime
-        run: node config/scripts/bundle-pi.cjs
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
+        shell: bash
+        run: |
+          set -e
+          BUNDLE="resources/pi-runtime"
+          rm -rf "$BUNDLE"
+          mkdir -p "$BUNDLE"
+          cd "$BUNDLE"
+          npm init -y --silent
+          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --silent
+          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --silent
+          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
 
       # Windows: skip signing
       - name: Package Windows (unsigned)
