@@ -22,9 +22,35 @@ import { BrowserWindow } from 'electron'
 // 路径
 // ---------------------------------------------------------------------------
 
+let _debugLogPath: string | null = null
+
+function debugLogPath(): string {
+  if (!_debugLogPath) {
+    _debugLogPath = join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.pi', 'agent', '.guiying-debug.log'
+    )
+  }
+  return _debugLogPath
+}
+
+function writeDebug(msg: string): void {
+  try {
+    mkdirSync(join(process.env.HOME || process.env.USERPROFILE || '', '.pi', 'agent'), { recursive: true })
+    appendFileSync(debugLogPath(), `${new Date().toISOString()} ${msg}\n`)
+  } catch {}
+}
+
 function getResourcesDir(): string {
-  if (existsSync(join(__dirname, '..', '..', 'resources'))) {
-    return join(__dirname, '..', '..', 'resources')
+  const devCandidate = join(__dirname, '..', '..', 'resources')
+  // Why: in a dev tree, pi-bundle/ lives alongside other resources in the
+  // repo root. In a packaged app, pi-bundle/ and pi-runtime/ are
+  // extraResources at process.resourcesPath/<name> (outside app.asar).
+  // The resources/ dir itself EXISTS inside app.asar (build/ assets are
+  // bundled), so checking just resources/ returns the WRONG path.
+  // Check for pi-bundle/ specifically — it's never inside the asar.
+  if (existsSync(join(devCandidate, 'pi-bundle'))) {
+    return devCandidate
   }
   return process.resourcesPath
 }
@@ -80,12 +106,13 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
 
     addToWindowsUserPath(appDir, log)
   } else {
-    let binDir = '/usr/local/bin'
-    try { mkdirSync('/usr/local/bin', { recursive: true }) }
-    catch {
-      binDir = join(home, '.local', 'bin')
-      mkdirSync(binDir, { recursive: true })
-      // 确保 ~/.local/bin 在 PATH（GUI app 环境可能没有）
+    // Why: /usr/local/bin requires root on macOS and is sandbox-restricted in
+    // packaged apps. Use ~/.local/bin as the primary target — it's on the
+    // default PATH for most modern shells and always writable by the user.
+    let binDir = join(home, '.local', 'bin')
+    mkdirSync(binDir, { recursive: true })
+    // 确保 ~/.local/bin 在 PATH（GUI app 环境可能没有）
+    try {
       const rcFile = process.env.SHELL?.includes('zsh') ? join(home, '.zshrc') : join(home, '.bashrc')
       if (existsSync(rcFile)) {
         const exportLine = `export PATH="${binDir}:$PATH"`
@@ -94,7 +121,7 @@ function registerPiCommand(userDir: string, log: (msg: string) => void): void {
           writeFileSync(rcFile, content.trimEnd() + `\n# guiying — Pi agent PATH\n${exportLine}\n`)
         }
       }
-    }
+    } catch {}
 
     const linkPath = join(binDir, 'pi')
     const shim = [
@@ -137,24 +164,41 @@ function checkPiCmdExists(): boolean {
 
 function installPiRuntime(userDir: string, log: (msg: string) => void): void {
   const runtimeDir = getBundledPiRuntimeDir()
-  if (!existsSync(runtimeDir)) { log('Pi runtime not bundled'); return }
+  if (!existsSync(runtimeDir)) {
+    writeDebug(`pi-runtime NOT FOUND at ${runtimeDir}`)
+    log('Pi runtime not bundled')
+    return
+  }
 
   const dst = join(userDir, 'npm')
   mkdirSync(dst, { recursive: true })
 
   if (process.platform === 'win32') {
     const tarFile = join(runtimeDir, 'pi-packages.tar.gz')
-    if (!existsSync(tarFile)) { log('pi-packages.tar.gz not found'); return }
+    if (!existsSync(tarFile)) {
+      writeDebug(`pi-packages.tar.gz NOT FOUND at ${tarFile}`)
+      log('pi-packages.tar.gz not found')
+      return
+    }
     log('Extracting Pi packages...')
     try {
       execFileSync('tar', ['-xzf', tarFile, '-C', dst], { stdio: 'pipe', timeout: 60000, windowsHide: true })
       log('Pi packages extracted ✓')
     } catch (err: any) {
-      log(`Extraction failed: ${err?.message || err}`)
+      const detail = err?.message || String(err)
+      writeDebug(`tar extraction failed: ${detail}`)
+      if (err?.stderr) writeDebug(`tar stderr: ${err.stderr}`)
+      log(`Extraction failed: ${detail}`)
     }
   } else {
-    cpSync(runtimeDir, dst, { recursive: true, force: true })
-    log('Pi runtime copied ✓')
+    try {
+      cpSync(runtimeDir, dst, { recursive: true, force: true })
+      log('Pi runtime copied ✓')
+    } catch (err: any) {
+      const detail = err?.message || String(err)
+      writeDebug(`cpSync failed: ${detail}`)
+      log(`Pi runtime copy failed: ${detail}`)
+    }
   }
 }
 
@@ -213,15 +257,11 @@ export async function runPiBootstrap(): Promise<void> {
   bootstrapDone = true
 
   // 第一时间写标记——即使后续全崩也能证明被调用了
-  try {
-    const debugDir = join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent')
-    mkdirSync(debugDir, { recursive: true })
-    writeFileSync(join(debugDir, '.guiying-debug.log'), `bootstrap called at ${new Date().toISOString()}\n`)
-  } catch {}
+  writeDebug(`bootstrap called resourcesPath=${process.resourcesPath} __dirname=${__dirname} packaged=${Boolean((process as any).pkg || process.execPath.includes('.app'))}`)
 
   const bundled = getBundledPiDir()
   if (!existsSync(bundled)) {
-    try { appendFileSync(join(process.env.HOME || process.env.USERPROFILE || '~', '.pi', 'agent', '.guiying-debug.log'), `pi-bundle NOT FOUND at ${bundled}\n`) } catch {}
+    writeDebug(`pi-bundle NOT FOUND at ${bundled}`)
     return
   }
 
@@ -308,6 +348,8 @@ export async function runPiBootstrap(): Promise<void> {
 
     checkOpenCodeGoAuth(userDir, log)
   } catch (err: any) {
+    const detail = err?.stack || err?.message || String(err)
+    writeDebug(`bootstrap error: ${detail}`)
     log(`Bootstrap error: ${err?.message || err}`)
     console.error('[guiying] Bootstrap error:', err)
   }

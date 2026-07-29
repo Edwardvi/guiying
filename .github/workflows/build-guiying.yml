@@ -72,19 +72,14 @@ jobs:
 
       # Bundle Pi runtime — install Pi CLI + npm packages into app resources
       - name: Bundle Pi runtime
-        shell: bash
-        run: |
-          set -e
-          BUNDLE="resources/pi-runtime"
-          rm -rf "$BUNDLE"
-          mkdir -p "$BUNDLE"
-          cd "$BUNDLE"
-          npm init -y
-          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
-          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
-          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
+        run: pnpm bundle:pi
         env:
           npm_config_arch: ${{ matrix.arch }}
+
+      - name: Verify Pi runtime
+        run: |
+          test -f resources/pi-runtime/node_modules/@earendil-works/pi-coding-agent/dist/cli.js || { echo "Pi CLI entry missing"; exit 1; }
+          echo "Pi runtime verified: $(find resources/pi-runtime/node_modules -maxdepth 1 -type d | wc -l) packages"
 
       # macOS build without signing (local ad-hoc)
 
@@ -159,36 +154,18 @@ jobs:
           ORCA_POSTHOG_WRITE_KEY: null
           ORCA_DIAGNOSTICS_TOKEN_URL: ''
 
-      # Bundle Pi runtime — package Pi CLI as .tgz for offline install
-      # macOS: full bundle via ditto | Windows: .tgz extracted by Electron's Node
-      - name: Bundle Pi runtime
-        if: runner.os != 'Windows'
+      # Bundle Pi runtime — package Pi CLI as .tgz for offline install.
+      # Windows requires .tar.gz because NSIS chokes on deep node_modules paths.
+      - name: Bundle Pi for Windows
+        if: runner.os == 'Windows'
         shell: bash
         run: |
           set -e
-          BUNDLE="resources/pi-runtime"
-          rm -rf "$BUNDLE"
-          mkdir -p "$BUNDLE"
-          cd "$BUNDLE"
-          npm init -y
-          npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional
-          npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional
-          echo "Pi runtime bundled: $(du -sh node_modules 2>/dev/null || echo 'OK')"
-        env:
-          npm_config_arch: ${{ matrix.arch }}
-
-      - name: Package Pi for Windows
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          if not exist "resources\pi-runtime" mkdir "resources\pi-runtime"
-          cd "resources\pi-runtime"
-          call npm install @earendil-works/pi-coding-agent --omit=dev --omit=optional --prefix .
-          call npm install pi-web-access pi-mcp-adapter pi-subagents context-mode --omit=dev --omit=optional --prefix .
-          :: Package into single .tar.gz (Windows 10+ has tar built-in)
+          pnpm bundle:pi
+          cd resources/pi-runtime
           tar -czf pi-packages.tar.gz node_modules
-          rmdir /s /q node_modules
-          dir
+          rm -rf node_modules
+          echo "Pi Windows bundle: $(ls -lh pi-packages.tar.gz)"
 
       # Windows: skip signing
       - name: Package Windows (unsigned)
